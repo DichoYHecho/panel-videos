@@ -16,6 +16,7 @@ BASE = "appeuC0uIAlqqp1h9"
 T_PUB = "tbl7ynqI9bJrWtR0m"      # Publicaciones
 T_CITAS = "tbluECdgOggDiZIFJ"    # Citas
 CAMPO_VIDEO = "Vídeo"
+CAMPO_TITULO = "Título vídeo"    # título para YouTube (lo puedo corregir en la revisión)
 UA = "DichoYHechoBot/1.1 (https://www.instagram.com/dichoyhechoo_/; dichoyhecho66@gmail.com) GitHubActions"
 AQUI = os.path.dirname(os.path.abspath(__file__))
 TOKEN = os.environ.get("AIRTABLE_TOKEN", "")
@@ -46,6 +47,23 @@ def listar(tabla, campos, formula=None, orden=None):
         regs += d["records"]
         offset = d.get("offset")
         if not offset: return regs
+
+
+def actualizar(cambios):
+    """cambios = [(rec_id, {campo: valor})]; de 10 en 10 (máximo de Airtable por petición)."""
+    for i in range(0, len(cambios), 10):
+        lote = [{"id": r, "fields": f} for r, f in cambios[i:i + 10]]
+        pedir("PATCH", f"https://api.airtable.com/v0/{BASE}/{T_PUB}", json={"records": lote})
+
+
+def titulo_video(frase, autor):
+    """Título de YouTube (máx. 100): «cita» — Autor; si no cabe, Autor: «principio de la cita…»."""
+    t = f"«{frase}» — {autor}"
+    if len(t) <= 100:
+        return t
+    base = f"{autor}: «"
+    corte = frase[:100 - len(base) - 2].rsplit(" ", 1)[0].rstrip(",;:.¿¡ ")
+    return f"{base}{corte}…»"
 
 
 def subir_video(rec_id, ruta, nombre):
@@ -148,8 +166,15 @@ def main():
     else:
         if not TOKEN:
             sys.exit("Falta el secret AIRTABLE_TOKEN")
-        regs = listar(T_PUB, ["Frase", "Autor", "Crédito foto", "Estado", CAMPO_VIDEO],
+        regs = listar(T_PUB, ["Frase", "Autor", "Crédito foto", "Estado", CAMPO_VIDEO, CAMPO_TITULO],
                       formula="{Estado}!='Publicado'", orden="Fecha de Creación")
+        # Títulos que faltan en vídeos ya hechos
+        sin_titulo = [(r["id"], {CAMPO_TITULO: titulo_video(r["fields"]["Frase"].strip(), r["fields"].get("Autor", "").strip())})
+                      for r in regs if r["fields"].get(CAMPO_VIDEO) and not r["fields"].get(CAMPO_TITULO)
+                      and r["fields"].get("Frase")]
+        if sin_titulo:
+            actualizar(sin_titulo)
+            print(f"Títulos de YouTube añadidos a {len(sin_titulo)} vídeo(s) ya hechos.")
         pendientes = [(r["id"], r["fields"]) for r in regs if not r["fields"].get(CAMPO_VIDEO) and r["fields"].get("Frase")]
         print(f"Publicaciones sin vídeo: {len(pendientes)}. Se harán como mucho {LIMITE}.")
         citas = listar(T_CITAS, ["Cita", "Autor", "Wikipedia", "Fuente", "Foto manual"]) if pendientes else []
@@ -171,6 +196,7 @@ def main():
                         os.replace(info["salida"], os.path.join("salida_prueba", os.path.basename(info["salida"])))
                     else:
                         subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
+                        actualizar([(rec_id, {CAMPO_TITULO: titulo_video(pub["Frase"].strip(), autor.strip())})])
                     hechos += 1
                     msg = f"{info['duracion']} s, {info['mb']} MB, {time.time() - t0:.0f} s de montaje · {info['gancho']}"
                 else:
