@@ -1,0 +1,49 @@
+name: Vídeos de las citas
+
+on:
+  workflow_dispatch:
+    inputs:
+      limite:
+        description: "Cuántos vídeos crear como máximo"
+        required: true
+        default: "2"
+
+concurrency:
+  group: videos
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  videos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar FFmpeg y la fuente Inter
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg fonts-inter
+
+      - name: Instalar librerías de Python
+        run: pip install -r requirements.txt
+
+      - name: Descargar la voz (Piper, es_ES davefx)
+        run: |
+          mkdir -p modelos && cd modelos
+          curl -sSfL -o voz.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium.tar.bz2
+          echo "a3f6beb54a9cb893279f72978a22f807a4d9fc9c7848157b524d5cc7b7f58b22  voz.tar.bz2" | sha256sum -c -
+          tar xjf voz.tar.bz2 && rm voz.tar.bz2
+
+      - name: Crear los vídeos y subirlos a Airtable
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          LIMITE: ${{ inputs.limite || '12' }}
+        run: python videos/generar.py
