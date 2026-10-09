@@ -1,6 +1,10 @@
 name: Vídeos de las citas
 
 on:
+  schedule:
+    # GitHub usa la hora UTC. En horario de invierno de Madrid (desde el 25 de octubre):
+    - cron: "30 2 * * 0"   # domingos a las 03:30, después del lote del escenario 1 (02:00)
+    - cron: "0 12 * * *"   # todos los días a las 13:00: repesca (créditos corregidos, fallos)
   workflow_dispatch:
     inputs:
       limite:
@@ -19,23 +23,33 @@ jobs:
   videos:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
     steps:
       - uses: actions/checkout@v5
 
+      - name: ¿Hay publicaciones sin vídeo?
+        id: mirar
+        run: python3 videos/pendientes.py
+
       - uses: actions/setup-python@v6
+        if: steps.mirar.outputs.hay == 'true'
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Instalar FFmpeg y la fuente Inter
+        if: steps.mirar.outputs.hay == 'true'
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg fonts-inter
 
       - name: Instalar librerías de Python
+        if: steps.mirar.outputs.hay == 'true'
         run: pip install -r requirements.txt
 
       - name: Descargar la voz (Piper, es_ES davefx)
+        if: steps.mirar.outputs.hay == 'true'
         run: |
           mkdir -p modelos && cd modelos
           curl -sSfL -o voz.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium.tar.bz2
@@ -43,7 +57,7 @@ jobs:
           tar xjf voz.tar.bz2 && rm voz.tar.bz2
 
       - name: Crear los vídeos y subirlos a Airtable
+        if: steps.mirar.outputs.hay == 'true'
         env:
-          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
           LIMITE: ${{ inputs.limite || '12' }}
         run: python videos/generar.py
