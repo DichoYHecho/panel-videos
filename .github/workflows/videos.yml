@@ -5,12 +5,17 @@ on:
     # GitHub usa la hora UTC. En horario de invierno de Madrid (desde el 25 de octubre):
     - cron: "30 2 * * 0"   # domingos a las 03:30, después del lote del escenario 1 (02:00)
     - cron: "0 12 * * *"   # todos los días a las 13:00: repesca (créditos corregidos, fallos)
+    - cron: "0 3 1 * *"    # el día 1 de cada mes a las 04:00: limpieza de vídeos ya publicados
   workflow_dispatch:
     inputs:
       limite:
         description: "Cuántos vídeos crear como máximo"
         required: true
         default: "2"
+      limpiar:
+        description: "Hacer también la limpieza de vídeos ya publicados"
+        type: boolean
+        default: false
 
 concurrency:
   group: videos
@@ -27,6 +32,10 @@ jobs:
       AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Limpieza mensual de vídeos ya publicados
+        if: github.event.schedule == '0 3 1 * *' || inputs.limpiar
+        run: python3 videos/limpiar.py
 
       - name: ¿Hay publicaciones sin vídeo?
         id: mirar
