@@ -116,8 +116,18 @@ if modo == "B":
         for p, a in zip(ps, acum):
             p.t_on = T0 + v["ini"] + a * (v["fin"] - v["ini"]) - 0.05
 
-g_nb = g_txt.replace(autor, autor.replace(" ", "\u00a0")) if len(autor) <= 18 else g_txt  # nombre en una línea
-g_toks = [(w, AMARILLO if w.strip("«»:,").replace("\u00a0", " ") == autor else BLANCO, 0) for w in g_nb.split(" ")]
+# El nombre del autor va en amarillo (y en una sola línea si es corto)
+i_a = g_txt.find(autor)
+if i_a >= 0:
+    antes, despues = g_txt[:i_a].split(), g_txt[i_a + len(autor):]
+    nombre = [autor.replace(" ", "\u00a0")] if len(autor) <= 18 else autor.split()
+    if despues and not despues.startswith(" "):  # signo pegado al nombre («Séneca:»)
+        pegado, _, despues = despues.partition(" ")
+        nombre[-1] += pegado
+    g_toks = ([(w, BLANCO, 0) for w in antes] + [(w, AMARILLO, 0) for w in nombre]
+              + [(w, BLANCO, 0) for w in despues.split()])
+else:
+    g_toks = [(w, BLANCO, 0) for w in g_txt.split()]
 gancho_p, alto_g, _ = ajustar(g_toks, F_BOLD, 76, 52, 440, CY - 60)
 if g_sub:
     sub_p, _ = maquetar([(w, (215, 215, 215), 0) for w in g_sub.split()],
