@@ -57,13 +57,16 @@ jobs:
         if: steps.mirar.outputs.hay == 'true'
         run: pip install -r requirements.txt
 
-      - name: Descargar la voz (Piper, es_ES davefx)
+      - name: Descargar las voces (Piper es_ES davefx y sharvard)
         if: steps.mirar.outputs.hay == 'true'
         run: |
           mkdir -p modelos && cd modelos
           curl -sSfL -o voz.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium.tar.bz2
           echo "a3f6beb54a9cb893279f72978a22f807a4d9fc9c7848157b524d5cc7b7f58b22  voz.tar.bz2" | sha256sum -c -
           tar xjf voz.tar.bz2 && rm voz.tar.bz2
+          curl -sSfL -o voz_f.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-sharvard-medium.tar.bz2
+          echo "b30a7a83df0518f0ee1c7039506648cade99f1f9b498fc49ed2ced2e2536bb5a  voz_f.tar.bz2" | sha256sum -c -
+          tar xjf voz_f.tar.bz2 && rm voz_f.tar.bz2
 
       - name: Crear los vídeos y subirlos a Airtable
         if: steps.mirar.outputs.hay == 'true'
