@@ -63,11 +63,11 @@ def actualizar(cambios):
 
 
 def titulo_video(frase, autor):
-    """Título de YouTube (máx. 100): «cita» — Autor; si no cabe, Autor: «principio de la cita…»."""
-    t = f"«{frase}» — {autor}"
-    if len(t) <= 100:
-        return t
-    base = f"{autor}: «"
+    """Título de YouTube (máx. 100), con lo que la gente busca: Frase de Autor: «cita»;
+    si no cabe, Frase de Autor: «principio de la cita…» (desde el 11 de octubre de 2026)."""
+    base = f"Frase de {autor}: «"
+    if len(base) + len(frase) + 1 <= 100:
+        return f"{base}{frase}»"
     corte = frase[:100 - len(base) - 2].rsplit(" ", 1)[0].rstrip(",;:.¿¡ ")
     return f"{base}{corte}…»"
 
