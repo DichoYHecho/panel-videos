@@ -1,26 +1,30 @@
-"""Voz neutra (Piper, voz es_ES «davefx») frase a frase -> wav + tiempos de cada frase.
-No imita a nadie: es una voz de narrador genérica, siempre la misma."""
+"""Voz neutra (Piper) frase a frase -> wav + tiempos de cada trozo.
+Voz «m»: es_ES davefx (masculina). Voz «f»: es_ES sharvard, hablante F (femenina; CC BY 3.0).
+Ninguna imita a nadie: son voces de narrador genéricas."""
 import json, os, re
 import numpy as np, soundfile as sf
 from comun import texto_voz
 
 SR = 24000
-MODELO = os.environ.get("MODELO_VOZ", os.path.join(os.path.dirname(__file__), "..", "modelos",
-                                                    "vits-piper-es_ES-davefx-medium"))
-_tts = None
+DIR = os.environ.get("MODELOS_VOZ", os.path.join(os.path.dirname(__file__), "..", "modelos"))
+VOCES = {  # carpeta, archivo, hablante, lentitud
+    "m": ("vits-piper-es_ES-davefx-medium", "es_ES-davefx-medium.onnx", 0, 1.12),
+    "f": ("vits-piper-es_ES-sharvard-medium", "es_ES-sharvard-medium.onnx", 1, 1.08),
+}
+_motores = {}
 
 
-def _motor():
-    global _tts
-    if _tts is None:
+def _motor(voz):
+    if voz not in _motores:
         import sherpa_onnx
-        d = MODELO
+        carpeta, onnx, _, lento = VOCES[voz]
+        d = os.path.join(DIR, carpeta)
         cfg = sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
-            vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=f"{d}/es_ES-davefx-medium.onnx",
-                tokens=f"{d}/tokens.txt", data_dir=f"{d}/espeak-ng-data", length_scale=1.12),
+            vits=sherpa_onnx.OfflineTtsVitsModelConfig(model=f"{d}/{onnx}", tokens=f"{d}/tokens.txt",
+                                                        data_dir=f"{d}/espeak-ng-data", length_scale=lento),
             num_threads=2))
-        _tts = sherpa_onnx.OfflineTts(cfg)
-    return _tts
+        _motores[voz] = sherpa_onnx.OfflineTts(cfg)
+    return _motores[voz]
 
 
 def _recortar(x, thr=0.012):
@@ -29,12 +33,14 @@ def _recortar(x, thr=0.012):
     return x[max(idx[0] - int(0.02 * SR), 0):min(idx[-1] + int(0.06 * SR), len(x))]
 
 
-def sintetizar(frases, autor, out_wav, out_json):
-    """Lee cada frase y al final el nombre del autor. Guarda el audio y los tiempos."""
-    tts = _motor()
+def sintetizar(trozos, out_wav, out_json, voz="m", rapido=()):
+    """Lee cada trozo (gancho, frases de la cita, autor) y guarda el audio y los tiempos.
+    rapido = índices de los trozos que se leen un poco más deprisa (el gancho)."""
+    tts = _motor(voz)
+    sid = VOCES[voz][2]
     partes, tiempos, t = [], [], 0.0
-    for f in list(frases) + [autor + "."]:
-        a = tts.generate(texto_voz(f), sid=0, speed=1.0)
+    for i, f in enumerate(trozos):
+        a = tts.generate(texto_voz(f), sid=sid, speed=1.12 if i in rapido else 1.0)
         x = np.array(a.samples, dtype=np.float32)
         if a.sample_rate != SR:
             n = int(len(x) * SR / a.sample_rate)
