@@ -7,6 +7,11 @@
 - Formato B (11 oct 2026): «Quién era» sale de Wikidata en español la primera vez y se guarda en la
   publicación para que lo revise; si lo corrijo, uso mi texto. Las autoras se leen con voz femenina
   (sharvard, CC BY 3.0, citada en el vídeo). Si Wikidata no contesta, se salta y se reintenta otro día.
+- Créditos (15 oct 2026): antes de hacer el vídeo se limpia el crédito que trae Make («Unknown author»
+  repetido, fechas, «restored by…», plantillas «(PD-…)») y se corrige también la línea «Foto:» del
+  Caption, en la misma llamada a Airtable. Si no hay foto del autor (ni Foto manual ni foto libre en
+  Wikipedia, o la de Wikipedia es un dibujo .svg) o el crédito está vacío, se marca con «[…]» para que
+  salga en «Avisos» y no se hace el vídeo hasta que lo revise.
 
 Variables: AIRTABLE_TOKEN (secret de GitHub), LIMITE (máximo de vídeos por ejecución),
 PRUEBA_LOCAL (opcional: JSON con publicaciones de prueba; no toca Airtable, Wikipedia ni Wikidata)."""
@@ -21,7 +26,10 @@ T_CITAS = "tbluECdgOggDiZIFJ"    # Citas
 CAMPO_VIDEO = "Vídeo"
 CAMPO_TITULO = "Título vídeo"    # título para YouTube (lo puedo corregir en la revisión)
 CAMPO_QUIEN = "Quién era"        # línea bajo el autor (de Wikidata; la puedo corregir en la revisión)
+CAMPO_CREDITO = "Crédito foto"
 CREDITO_VOZ_F = "Voz: sharvard (CC BY 3.0)"
+SIN_FOTO = "[Sin foto libre del autor: añade una Foto manual]"
+REVISA = "[Revisa el crédito de la foto]"
 UA = "DichoYHechoBot/1.1 (https://www.instagram.com/dichoyhechoo_/; dichoyhecho66@gmail.com) GitHubActions"
 AQUI = os.path.dirname(os.path.abspath(__file__))
 TOKEN = os.environ.get("AIRTABLE_TOKEN", "")
@@ -81,6 +89,53 @@ def subir_video(rec_id, ruta, nombre):
           json={"contentType": "video/mp4", "filename": nombre, "file": base64.b64encode(datos).decode()})
 
 
+# ---------- Crédito de la foto (15 oct 2026) ----------
+def limpiar_credito(c):
+    """Limpia el crédito que trae Make de Wikimedia Commons. Si tiene «[» (pendiente), no lo toca."""
+    if not c or "[" in c:
+        return c
+    s = re.sub(r"\s+", " ", c).strip()
+    s = re.sub(r"(?:Unknown author)+", "Autor desconocido", s, flags=re.I)
+    s = re.sub(r"\b(?:Unknown photographer|Unknown|Anonymous)\b", "Autor desconocido", s, flags=re.I)
+    s = re.sub(r"(Autor desconocido)(?:\s*\1)+", r"\1", s)
+    s = re.sub(r",?\s*\brestored by\b.*?(?=\s*\((?:CC|GFDL)|$)", "", s, flags=re.I)
+    s = re.sub(r"\s*\bactive\s+(?:c\.\s*)?\d{3,4}\s*[-–]\s*\d{3,4}", "", s, flags=re.I)
+    s = re.sub(r"\s*\((?:c\.\s*)?\d{3,4}\s*[-–]\s*(?:c\.\s*)?\d{3,4}\)", "", s)
+    s = re.sub(r"\s*\(PD[-\w ]*\)", "", s)
+    s = re.sub(r"\bThe Nobel Foundation\b", "Fundación Nobel", s)
+    s = re.sub(r"\s{2,}", " ", s).strip(" ,;")
+    return s or c
+
+
+def caption_con_credito(cap, cred):
+    """Pone «Foto: cred» en el Caption: cambia la línea «Foto:» o, si no hay, la añade tras «Fuente:»."""
+    if not cap or not cred:
+        return cap
+    lineas = cap.split("\n")
+    for i, l in enumerate(lineas):
+        if l.startswith("Foto:"):
+            lineas[i] = f"Foto: {cred}"
+            return "\n".join(lineas)
+    for i, l in enumerate(lineas):
+        if l.startswith("Fuente:"):
+            lineas.insert(i + 1, f"Foto: {cred}")
+            return re.sub(r"\n{3,}", "\n\n", "\n".join(lineas))
+    return cap
+
+
+def cambios_credito(pub, nuevo):
+    """Campos a cambiar en Airtable si el crédito nuevo es distinto del que hay."""
+    viejo = (pub.get(CAMPO_CREDITO) or "").strip()
+    if not nuevo or nuevo == viejo:
+        return {}
+    cambios = {CAMPO_CREDITO: nuevo}
+    cap = pub.get("Caption") or ""
+    cap_nuevo = caption_con_credito(cap, nuevo)
+    if cap_nuevo != cap:
+        cambios["Caption"] = cap_nuevo
+    return cambios
+
+
 # ---------- Datos de la cita, foto y Wikidata ----------
 def norm(s):
     s = unicodedata.normalize("NFKC", s or "").lower()
@@ -108,7 +163,8 @@ def descargar(url, ruta, ua=True):
 
 
 def foto_wikipedia(titulo):
-    """Foto principal del artículo, solo si tiene licencia libre (igual que el escenario 1)."""
+    """Foto principal del artículo, solo si tiene licencia libre (igual que el escenario 1).
+    Si es un dibujo .svg (caracteres, escudos, firmas) no sirve como foto del autor."""
     if not titulo: return None
     r = requests.get("https://en.wikipedia.org/w/api.php", headers={"User-Agent": UA}, timeout=30, params={
         "action": "query", "format": "json", "formatversion": "2", "prop": "pageimages",
@@ -116,7 +172,9 @@ def foto_wikipedia(titulo):
         "titles": titulo})
     r.raise_for_status()
     pags = r.json().get("query", {}).get("pages", [])
-    return pags[0].get("thumbnail", {}).get("source") if pags else None
+    if not pags or pags[0].get("pageimage", "").lower().endswith(".svg"):
+        return None
+    return pags[0].get("thumbnail", {}).get("source")
 
 
 def limpiar_quien(desc):
@@ -159,9 +217,25 @@ def slug(s):
 # ---------- Un vídeo ----------
 def hacer_video(rec_id, pub, cita, tmp):
     frase, autor = pub["Frase"].strip(), pub["Autor"].strip()
-    credito = (pub.get("Crédito foto") or "").strip()
+    credito = limpiar_credito((pub.get(CAMPO_CREDITO) or "").strip())
     if "[" in credito:
         return "saltada", f"el crédito está pendiente de revisar: «{credito}»", {}
+
+    # Foto: manual > Wikipedia. Sin foto del autor no se hace el vídeo (se marca para revisarlo).
+    foto = None
+    if cita.get("foto_local"):
+        foto = cita["foto_local"]
+    elif cita.get("Foto manual"):
+        foto = descargar(cita["Foto manual"][0]["url"], os.path.join(tmp, "foto.jpg"), ua=False)
+    elif not PRUEBA:
+        url = foto_wikipedia(cita.get("Wikipedia"))
+        if url:
+            foto = descargar(url, os.path.join(tmp, "foto.jpg"))
+    if not foto:
+        return "saltada", "no hay foto del autor (añade una Foto manual)", cambios_credito(pub, SIN_FOTO)
+    if not credito:
+        return "saltada", "el crédito de la foto está vacío", cambios_credito(pub, REVISA)
+    cambios = cambios_credito(pub, credito)
 
     # Quién era y voz (Wikidata); si ya escribí «Quién era», se respeta mi texto
     if PRUEBA:
@@ -170,22 +244,10 @@ def hacer_video(rec_id, pub, cita, tmp):
         try:
             quien_wd, mujer = wikidata(cita.get("Wikipedia"))
         except requests.RequestException as e:
-            return "saltada", f"Wikidata no contesta ({str(e)[:120]}); se reintenta otro día", {}
+            return "saltada", f"Wikidata no contesta ({str(e)[:120]}); se reintenta otro día", cambios
     quien = (pub.get(CAMPO_QUIEN) or "").strip() or quien_wd
-    cambios = {} if (pub.get(CAMPO_QUIEN) or "").strip() or not quien else {CAMPO_QUIEN: quien}
-
-    # Foto: manual > Wikipedia > fondo neutro
-    foto = None
-    if cita.get("foto_local"):
-        foto = cita["foto_local"]
-    elif cita.get("Foto manual"):
-        foto = descargar(cita["Foto manual"][0]["url"], os.path.join(tmp, "foto.jpg"), ua=False)
-    else:
-        url = foto_wikipedia(cita.get("Wikipedia"))
-        if url:
-            foto = descargar(url, os.path.join(tmp, "foto.jpg"))
-    if not foto:
-        credito = ""
+    if not (pub.get(CAMPO_QUIEN) or "").strip() and quien:
+        cambios[CAMPO_QUIEN] = quien
 
     # Voz (gancho + cita + autor) y música
     g_txt, _ = gancho(autor, cita.get("Fuente", ""))
@@ -199,7 +261,7 @@ def hacer_video(rec_id, pub, cita, tmp):
 
     salida = os.path.join(tmp, f"{slug(autor)}-{rec_id[-6:]}.mp4")
     cfg = {"cita": frase, "autor": autor, "fuente": cita.get("Fuente", ""), "quien": quien,
-           "credito": f"Foto: {credito}" if credito else "", "credito_voz": CREDITO_VOZ_F if mujer else "",
+           "credito": f"Foto: {credito}", "credito_voz": CREDITO_VOZ_F if mujer else "",
            "foto": foto, "voz_wav": os.path.join(tmp, "voz.wav"), "voz_json": os.path.join(tmp, "voz.json"),
            "musica": os.path.join(tmp, "musica.wav"), "salida": salida}
     json.dump(cfg, open(os.path.join(tmp, "cfg.json"), "w"), ensure_ascii=False)
@@ -208,6 +270,7 @@ def hacer_video(rec_id, pub, cita, tmp):
     info = json.loads(r.stdout.strip().splitlines()[-1])
     info["voz"] = "femenina" if mujer else "masculina"
     info["quien"] = quien
+    info["credito"] = credito
     return "ok", info, cambios
 
 
@@ -219,8 +282,8 @@ def main():
     else:
         if not TOKEN:
             sys.exit("Falta el secret AIRTABLE_TOKEN")
-        regs = listar(T_PUB, ["Frase", "Autor", "Crédito foto", "Estado", CAMPO_VIDEO, CAMPO_TITULO, CAMPO_QUIEN],
-                      formula="{Estado}!='Publicado'", orden="Fecha de Creación")
+        regs = listar(T_PUB, ["Frase", "Autor", CAMPO_CREDITO, "Caption", "Estado", CAMPO_VIDEO, CAMPO_TITULO,
+                              CAMPO_QUIEN], formula="{Estado}!='Publicado'", orden="Fecha de Creación")
         # Títulos que faltan en vídeos ya hechos
         sin_titulo = [(r["id"], {CAMPO_TITULO: titulo_video(r["fields"]["Frase"].strip(), r["fields"].get("Autor", "").strip())})
                       for r in regs if r["fields"].get(CAMPO_VIDEO) and not r["fields"].get(CAMPO_TITULO)
@@ -250,12 +313,16 @@ def main():
                     else:
                         subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
                         cambios[CAMPO_TITULO] = titulo_video(pub["Frase"].strip(), autor.strip())
-                        actualizar([(rec_id, cambios)])  # título y, si era nuevo, «Quién era»: 1 sola llamada
+                        actualizar([(rec_id, cambios)])  # título, crédito y «Quién era»: 1 sola llamada
                     hechos += 1
                     msg = (f"{info['duracion']} s, {info['mb']} MB, voz {info['voz']}, "
-                           f"{time.time() - t0:.0f} s de montaje · {info['gancho']} · {info['quien'] or '(sin «Quién era»)'}")
+                           f"{time.time() - t0:.0f} s de montaje · {info['gancho']} · {info['quien'] or '(sin «Quién era»)'}"
+                           f" · Foto: {info['credito']}")
                 else:
                     msg = info
+                    if cambios and not PRUEBA:  # p. ej. sin foto: se marca para que salga en «Avisos»
+                        actualizar([(rec_id, cambios)])
+                        msg += f" · marcado en Airtable: {cambios.get(CAMPO_CREDITO, '')}"
         except Exception as e:  # una publicación con problemas no para las demás
             estado, msg, errores = "error", str(e)[:300], errores + 1
         print(f"[{estado}] {autor} ({rec_id}): {msg}", flush=True)
