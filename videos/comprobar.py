@@ -57,24 +57,38 @@ CAMPOS = "id status channelId text sentAt dueAt createdAt externalLink assets { 
 
 
 def consulta(desde, after):
-    # Los valores van escritos en la consulta (como en los ejemplos de la documentación de Buffer)
+    # Los valores van escritos en la consulta (como en los ejemplos de la documentación de Buffer).
+    # Se piden todos los estados de forma explícita y se filtra por fecha de creación (19 oct: con el
+    # filtro antiguo «startDate», ya obsoleto en la API, Buffer devolvía 0 publicaciones).
     pag = f"after: {json.dumps(after)}, " if after else ""
+    filtro = (f"status: [sent, sending, scheduled, error, draft, needs_approval], "
+              f"createdAt: {{ start: {json.dumps(desde)} }}")
     return ("query Comprobar { posts(first: 100, " + pag +
-            f"input: {{ organizationId: {json.dumps(ORG)}, filter: {{ startDate: {json.dumps(desde)} }} }}) "
+            f"input: {{ organizationId: {json.dumps(ORG)}, filter: {{ {filtro} }}, "
+            "sort: [{ field: createdAt, direction: desc }] }) "
             f"{{ edges {{ node {{ {CAMPOS} }} }} pageInfo {{ hasNextPage endCursor }} }} }}")
+
+
+def buffer(query):
+    req = urllib.request.Request("https://api.buffer.com", data=json.dumps({"query": query}).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {os.environ['BUFFER_API_KEY']}",
+                                          "Content-Type": "application/json"})
+    d = json.load(urllib.request.urlopen(req, timeout=60))
+    if d.get("errors"):
+        raise SystemExit("Error de la API de Buffer: " + json.dumps(d["errors"], ensure_ascii=False)[:500])
+    return d["data"]
+
+
+def diagnostico():
+    """Si Buffer no devuelve nada, comprueba que la clave es de la organización del proyecto."""
+    orgs = [o["id"] for o in (buffer("query { account { organizations { id } } }")["account"]["organizations"] or [])]
+    print(f"La clave ve {len(orgs)} organización(es); la del proyecto {'SÍ' if ORG in orgs else 'NO'} está entre ellas.")
 
 
 def posts_buffer(desde):
     out, after = [], None
     for _ in range(10):  # como mucho 1.000 publicaciones (10 peticiones)
-        cuerpo = {"query": consulta(desde, after)}
-        req = urllib.request.Request("https://api.buffer.com", data=json.dumps(cuerpo).encode(), method="POST",
-                                     headers={"Authorization": f"Bearer {os.environ['BUFFER_API_KEY']}",
-                                              "Content-Type": "application/json"})
-        d = json.load(urllib.request.urlopen(req, timeout=60))
-        if d.get("errors"):
-            raise SystemExit("Error de la API de Buffer: " + json.dumps(d["errors"], ensure_ascii=False)[:500])
-        p = d["data"]["posts"]
+        p = buffer(consulta(desde, after))["posts"]
         out += [e["node"] for e in p["edges"]]
         if not p["pageInfo"]["hasNextPage"]:
             break
@@ -158,7 +172,12 @@ def main():
         return
     desde = (datetime.now(timezone.utc) - timedelta(days=DIAS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     posts = posts_buffer(desde)
-    print(f"Publicaciones en Buffer desde {desde}: {len(posts)}")
+    estados = {}
+    for p in posts:
+        estados[p.get("status")] = estados.get(p.get("status"), 0) + 1
+    print(f"Publicaciones en Buffer desde {desde}: {len(posts)} {estados}")
+    if not posts:
+        diagnostico()
     cambios, filas = [], []
     for pub in pubs:
         txt = resultado(pub, posts)
