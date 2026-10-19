@@ -1,7 +1,8 @@
 """Mejora M2: comprobar en Buffer que cada publicación «Publicado» salió de verdad.
 
 Lee (no publica ni borra nada) las publicaciones de Buffer de los últimos días y,
-para cada publicación de Airtable en «Publicado» sin comprobar (o pendiente «⏳»),
+para cada publicación de Airtable en «Publicado» sin comprobar, pendiente («⏳») o con fallo («⚠️»,
+por si se arregló después en Buffer),
 escribe una línea en el campo «Comprobación»:
   ✅ 19/10 17:01 · Foto, Reel, TikTok y YouTube publicados
   ⚠️ 19/10 17:01 · TikTok: <error de Buffer> · Bien: Foto, Reel y YouTube
@@ -34,7 +35,7 @@ def airtable(metodo, ruta, datos=None):
 
 
 def por_comprobar():
-    formula = f"AND({{Estado}}='Publicado', OR({{{CAMPO}}}='', FIND('⏳', {{{CAMPO}}})))"
+    formula = f"AND({{Estado}}='Publicado', OR({{{CAMPO}}}='', FIND('⏳', {{{CAMPO}}}), FIND('⚠', {{{CAMPO}}})))"
     params = [("pageSize", "100"), ("filterByFormula", formula), ("fields[]", "Frase"), ("fields[]", "Autor"),
               ("fields[]", "Caption"), ("fields[]", "Vídeo"), ("fields[]", CAMPO)]
     out, offset = [], None
@@ -102,6 +103,11 @@ def norm(s):
     return re.sub(r"\s+", " ", s).strip()
 
 
+def letras(s):
+    """Solo letras y números (sin comillas, rayas ni signos), para comparar la frase."""
+    return re.sub(r"[\W_]+", " ", norm(s)).strip()
+
+
 def clase(post):
     canal = CANAL.get(post.get("channelId"))
     if canal == "instagram":
@@ -123,9 +129,10 @@ def lista(nombres):
 def resultado(pub, posts):
     """Línea para el campo «Comprobación», o None si no se encuentra en Buffer."""
     f = pub["fields"]
-    cap, frase = norm(f.get("Caption")), norm(f.get("Frase"))[:60]
-    suyos = [p for p in posts if norm(p.get("text")) == cap] or \
-            ([p for p in posts if frase and frase in norm(p.get("text"))] if frase else [])
+    cap, frase = norm(f.get("Caption")), letras(f.get("Frase"))[:50]
+    # Cada publicación de Buffer cuenta si su texto es el Caption o contiene el principio de la frase
+    # (19 oct: el texto que guarda Buffer para YouTube no siempre es idéntico al Caption).
+    suyos = [p for p in posts if norm(p.get("text")) == cap or (frase and frase in letras(p.get("text")))]
     if not suyos:
         return None
     # Por cada red, el mejor estado (sent > sending/scheduled > error)
