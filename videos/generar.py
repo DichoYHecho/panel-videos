@@ -13,12 +13,16 @@
   Wikipedia, o la de Wikipedia es un dibujo .svg) o el crédito está vacío, se marca con «[…]» para que
   salga en «Avisos» y no se hace el vídeo hasta que lo revise.
 
-Variables: AIRTABLE_TOKEN (secret de GitHub), LIMITE (máximo de vídeos por ejecución),
+- Voz (23 oct 2026, fase V2): Gemini «Koda» para los autores y «Kore» para las autoras (ver tts.py). Si no
+  hay voz de Gemini, no se hace el vídeo y la repesca lo reintenta. Los vídeos hechos con la voz de antes
+  (sin «-v2» en el nombre del archivo) se rehacen y se cambia el adjunto: la publicación nunca se queda sin vídeo.
+
+Variables: AIRTABLE_TOKEN y GEMINI_API_KEY (secrets de GitHub), REHACER (1 por defecto), LIMITE (máximo de vídeos por ejecución),
 PRUEBA_LOCAL (opcional: JSON con publicaciones de prueba; no toca Airtable, Wikipedia ni Wikidata)."""
 import base64, difflib, json, os, re, subprocess, sys, tempfile, time, unicodedata, urllib.parse
 import requests
 from comun import frases, gancho
-from tts import sintetizar
+from tts import sintetizar, SinVoz, ULTIMO, MODELOS, _agotados
 
 BASE = "appeuC0uIAlqqp1h9"
 T_PUB = "tbl7ynqI9bJrWtR0m"      # Publicaciones
@@ -27,7 +31,6 @@ CAMPO_VIDEO = "Vídeo"
 CAMPO_TITULO = "Título vídeo"    # título para YouTube (lo puedo corregir en la revisión)
 CAMPO_QUIEN = "Quién era"        # línea bajo el autor (de Wikidata; la puedo corregir en la revisión)
 CAMPO_CREDITO = "Crédito foto"
-CREDITO_VOZ_F = "Voz: sharvard (CC BY 3.0)"
 SIN_FOTO = "[Sin foto libre del autor: añade una Foto manual]"
 REVISA = "[Revisa el crédito de la foto]"
 UA = "DichoYHechoBot/1.1 (https://www.instagram.com/dichoyhechoo_/; dichoyhecho66@gmail.com) GitHubActions"
@@ -36,6 +39,8 @@ TOKEN = os.environ.get("AIRTABLE_TOKEN", "")
 LIMITE = int(os.environ.get("LIMITE") or 12)
 PRUEBA = os.environ.get("PRUEBA_LOCAL")
 MUJER = {"Q6581072", "Q1052281"}  # Wikidata P21: mujer, mujer trans
+MARCA = "-v2"  # vídeos con la voz de Gemini (23 oct 2026); los que no la llevan se rehacen
+REHACER = os.environ.get("REHACER", "1") == "1"
 
 
 # ---------- Airtable ----------
@@ -85,8 +90,15 @@ def subir_video(rec_id, ruta, nombre):
     if len(datos) > 5_000_000:
         raise RuntimeError(f"el vídeo pesa {len(datos) / 1e6:.1f} MB (máximo 5)")
     campo = urllib.parse.quote(CAMPO_VIDEO)
-    pedir("POST", f"https://content.airtable.com/v0/{BASE}/{rec_id}/{campo}/uploadAttachment",
-          json={"contentType": "video/mp4", "filename": nombre, "file": base64.b64encode(datos).decode()})
+    d = pedir("POST", f"https://content.airtable.com/v0/{BASE}/{rec_id}/{campo}/uploadAttachment",
+              json={"contentType": "video/mp4", "filename": nombre, "file": base64.b64encode(datos).decode()})
+    # Id del adjunto nuevo (para quitar el vídeo viejo cuando se rehace): el último con ese nombre
+    adj = [a for v in (d.get("fields") or {}).values() if isinstance(v, list) for a in v
+           if isinstance(a, dict) and a.get("filename") == nombre]
+    if not adj:
+        reg = pedir("GET", f"https://api.airtable.com/v0/{BASE}/{T_PUB}/{rec_id}")
+        adj = [a for a in reg["fields"].get(CAMPO_VIDEO, []) if a.get("filename") == nombre]
+    return adj[-1]["id"] if adj else None
 
 
 # ---------- Crédito de la foto (15 oct 2026) ----------
@@ -252,23 +264,26 @@ def hacer_video(rec_id, pub, cita, tmp):
     # Voz (gancho + cita + autor) y música
     g_txt, _ = gancho(autor, cita.get("Fuente", ""))
     trozos = [g_txt] + frases(frase) + [autor + "."]
-    tv = sintetizar(trozos, os.path.join(tmp, "voz.wav"), os.path.join(tmp, "voz.json"),
-                    voz="f" if mujer else "m", rapido=(0,))
+    try:
+        tv = sintetizar(trozos, os.path.join(tmp, "voz.wav"), os.path.join(tmp, "voz.json"),
+                        voz="f" if mujer else "m", rapido=(0,))
+    except SinVoz as e:  # sin la voz de Gemini no se hace el vídeo: la repesca lo reintenta otro día
+        return "saltada", f"sin voz de Gemini ({str(e)[:160]}); se reintenta otro día", cambios
     dur_musica = 0.12 + tv[-1]["fin"] + 4
     semilla = sum(rec_id.encode()) % 1000
     subprocess.run([sys.executable, os.path.join(AQUI, "musica.py"), os.path.join(tmp, "musica.wav"),
                     f"{dur_musica:.2f}", str(semilla)], check=True, stdout=subprocess.DEVNULL)
 
-    salida = os.path.join(tmp, f"{slug(autor)}-{rec_id[-6:]}.mp4")
+    salida = os.path.join(tmp, f"{slug(autor)}-{rec_id[-6:]}{MARCA}.mp4")
     cfg = {"cita": frase, "autor": autor, "fuente": cita.get("Fuente", ""), "quien": quien,
-           "credito": f"Foto: {credito}", "credito_voz": CREDITO_VOZ_F if mujer else "",
+           "credito": f"Foto: {credito}", "credito_voz": "",
            "foto": foto, "voz_wav": os.path.join(tmp, "voz.wav"), "voz_json": os.path.join(tmp, "voz.json"),
            "musica": os.path.join(tmp, "musica.wav"), "salida": salida}
     json.dump(cfg, open(os.path.join(tmp, "cfg.json"), "w"), ensure_ascii=False)
     r = subprocess.run([sys.executable, os.path.join(AQUI, "render.py"), os.path.join(tmp, "cfg.json")],
                        check=True, capture_output=True, text=True)
     info = json.loads(r.stdout.strip().splitlines()[-1])
-    info["voz"] = "femenina" if mujer else "masculina"
+    info["voz"] = f"{ULTIMO.get('voz')} ({ULTIMO.get('modelo')}, subtítulos por {ULTIMO.get('metodo')})"
     info["quien"] = quien
     info["credito"] = credito
     return "ok", info, cambios
@@ -292,12 +307,17 @@ def main():
             actualizar(sin_titulo)
             print(f"Títulos de YouTube añadidos a {len(sin_titulo)} vídeo(s) ya hechos.")
         pendientes = [(r["id"], r["fields"]) for r in regs if not r["fields"].get(CAMPO_VIDEO) and r["fields"].get("Frase")]
-        print(f"Publicaciones sin vídeo: {len(pendientes)}. Se harán como mucho {LIMITE}.")
+        # Fase V2: los vídeos con la voz de antes se rehacen, después de los que no tienen vídeo
+        rehacer = [(r["id"], r["fields"]) for r in regs if REHACER and r["fields"].get("Frase") and r["fields"].get(CAMPO_VIDEO)
+                   and not any(MARCA + ".mp4" in (a.get("filename") or "") for a in r["fields"][CAMPO_VIDEO])]
+        print(f"Publicaciones sin vídeo: {len(pendientes)}; con la voz de antes: {len(rehacer)}. "
+              f"Se harán como mucho {LIMITE}.")
+        pendientes += rehacer
         citas = listar(T_CITAS, ["Cita", "Autor", "Wikipedia", "Fuente", "Foto manual"]) if pendientes else []
 
     filas, errores, hechos = [], 0, 0
     for rec_id, pub in pendientes:
-        if hechos >= LIMITE: break
+        if hechos >= LIMITE or len(_agotados) >= len(MODELOS): break  # sin cupo de voz: otro día
         autor = pub.get("Autor", "?")
         t0 = time.time()
         try:
@@ -311,7 +331,9 @@ def main():
                         os.makedirs("salida_prueba", exist_ok=True)
                         os.replace(info["salida"], os.path.join("salida_prueba", os.path.basename(info["salida"])))
                     else:
-                        subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
+                        nuevo = subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
+                        if pub.get(CAMPO_VIDEO) and nuevo:  # rehecho: se queda solo el vídeo nuevo
+                            cambios[CAMPO_VIDEO] = [{"id": nuevo}]
                         cambios[CAMPO_TITULO] = titulo_video(pub["Frase"].strip(), autor.strip())
                         actualizar([(rec_id, cambios)])  # título, crédito y «Quién era»: 1 sola llamada
                     hechos += 1
