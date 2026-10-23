@@ -4,7 +4,7 @@ on:
   schedule:
     # GitHub usa la hora UTC. En horario de invierno de Madrid (desde el 25 de octubre):
     - cron: "30 2 * * 0"   # domingos a las 03:30, después del lote del escenario 1 (02:00)
-    - cron: "0 12 * * *"   # todos los días a las 13:00: repesca (créditos corregidos, fallos)
+    - cron: "0 12 * * *"   # todos los días a las 13:00: repesca (créditos corregidos, fallos, voz)
     - cron: "0 3 1 * *"    # el día 1 de cada mes a las 04:00: limpieza de vídeos ya publicados
   workflow_dispatch:
     inputs:
@@ -12,6 +12,10 @@ on:
         description: "Cuántos vídeos crear como máximo"
         required: true
         default: "2"
+      rehacer:
+        description: "Rehacer también los vídeos con la voz de antes (después de los que no tienen vídeo)"
+        type: boolean
+        default: true
       limpiar:
         description: "Hacer también la limpieza de vídeos ya publicados"
         type: boolean
@@ -27,9 +31,11 @@ permissions:
 jobs:
   videos:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      REHACER: ${{ (github.event_name != 'workflow_dispatch' || inputs.rehacer) && '1' || '0' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -57,19 +63,30 @@ jobs:
         if: steps.mirar.outputs.hay == 'true'
         run: pip install -r requirements.txt
 
-      - name: Descargar las voces (Piper es_ES davefx y sharvard)
+      - name: Caché del modelo de Whisper (subtítulos)
         if: steps.mirar.outputs.hay == 'true'
-        run: |
-          mkdir -p modelos && cd modelos
-          curl -sSfL -o voz.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-davefx-medium.tar.bz2
-          echo "a3f6beb54a9cb893279f72978a22f807a4d9fc9c7848157b524d5cc7b7f58b22  voz.tar.bz2" | sha256sum -c -
-          tar xjf voz.tar.bz2 && rm voz.tar.bz2
-          curl -sSfL -o voz_f.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-es_ES-sharvard-medium.tar.bz2
-          echo "b30a7a83df0518f0ee1c7039506648cade99f1f9b498fc49ed2ced2e2536bb5a  voz_f.tar.bz2" | sha256sum -c -
-          tar xjf voz_f.tar.bz2 && rm voz_f.tar.bz2
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-base-v1
+
+      - name: Recuperar las voces ya hechas
+        if: steps.mirar.outputs.hay == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}
+          restore-keys: voces-
 
       - name: Crear los vídeos y subirlos a Airtable
         if: steps.mirar.outputs.hay == 'true'
         env:
           LIMITE: ${{ inputs.limite || '12' }}
         run: python videos/generar.py
+
+      - name: Guardar las voces
+        if: always() && steps.mirar.outputs.hay == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}
