@@ -150,7 +150,8 @@ DATOS (son los únicos hechos que puedes usar):
 ENFOQUE: {TIPOS[tipo]}
 
 REGLAS:
-1. Español de España, tuteando, tono cercano y culto. Sin emojis.
+1. Español de España, tono cercano y culto, con buena ortografía (tildes, «¿» y «¡»). Habla a UNA sola
+   persona, de tú («¿Y tú…?», «tu experiencia»); nunca de vosotros («os», «vuestro», «pensad»). Sin emojis.
 2. Entre 120 y 350 caracteres. Una o dos frases y la pregunta final.
 3. No inventes NADA: ni fechas, ni cifras, ni anécdotas, ni otras citas, ni datos del autor que no
    estén en los DATOS. Si un dato no está ahí, no lo uses. No digas que el autor «escribió» la frase
@@ -173,8 +174,12 @@ def problema(texto, datos):
         return f"longitud {len(texto)}"
     if "#" in texto or "http" in texto.lower() or "www." in texto.lower():
         return "lleva hashtags o enlaces"
-    if not texto.rstrip().endswith("?"):
-        return "no termina en pregunta"
+    if not texto.rstrip().endswith("?") or "¿" not in texto:
+        return "no termina en pregunta (con «¿…?»)"
+    if re.search(r"[^\W\d_]\d|\d[^\W\d_]", texto):
+        return "letras y números pegados (texto estropeado)"
+    if re.search(r"\b(os|vosotros|vosotras|vuestr[oa]s?|pensad|decidnos|contadnos|decidme|contadme)\b", texto, re.I):
+        return "habla de vosotros"
     if re.search(r"¿\s*(qu[eé] opin[aá]is|qu[eé] opinas|est[aá]s de acuerdo)\s*\?", texto, re.I):
         return "pregunta genérica"
     inventados = numeros(texto) - numeros(datos)
