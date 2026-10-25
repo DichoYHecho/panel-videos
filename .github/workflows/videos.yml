@@ -20,6 +20,14 @@ on:
         description: "Hacer también la limpieza de vídeos ya publicados"
         type: boolean
         default: false
+      comentarios:
+        description: "Cuántos comentarios para YouTube escribir como máximo (0 = ninguno)"
+        required: true
+        default: "20"
+      solo_mirar:
+        description: "Comentarios: solo enseñarlos en el resumen, sin guardarlos en Airtable"
+        type: boolean
+        default: false
 
 concurrency:
   group: videos
@@ -42,6 +50,14 @@ jobs:
       - name: Limpieza mensual de vídeos ya publicados
         if: github.event.schedule == '0 3 1 * *' || inputs.limpiar
         run: python3 videos/limpiar.py
+
+      - name: Comentarios para YouTube (tarea 6.16)
+        # Si falla, no para los vídeos: la siguiente ejecución lo reintenta.
+        continue-on-error: true
+        env:
+          LIMITE_COMENTARIOS: ${{ inputs.comentarios || '20' }}
+          SOLO_MIRAR: ${{ inputs.solo_mirar && '1' || '0' }}
+        run: python3 videos/comentarios.py
 
       - name: ¿Hay publicaciones sin vídeo?
         id: mirar
