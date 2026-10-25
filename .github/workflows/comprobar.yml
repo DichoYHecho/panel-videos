@@ -11,6 +11,10 @@ on:
         description: "Cuántos días hacia atrás mirar en Buffer"
         required: true
         default: "4"
+      solo_mirar:
+        description: "Comentarios de YouTube: solo enseñar qué se publicaría, sin publicar nada"
+        type: boolean
+        default: false
 
 concurrency:
   group: comprobar
@@ -32,3 +36,14 @@ jobs:
 
       - name: Comprobar en Buffer las publicaciones de los últimos días
         run: python3 videos/comprobar.py
+
+      - name: Publicar el comentario en YouTube (tarea 6.16)
+        # Si falla, la siguiente ejecución lo reintenta. Sin los secrets de YouTube, no hace nada.
+        if: always()
+        continue-on-error: true
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          SOLO_MIRAR: ${{ inputs.solo_mirar && '1' || '0' }}
+        run: python3 videos/comentar_youtube.py
