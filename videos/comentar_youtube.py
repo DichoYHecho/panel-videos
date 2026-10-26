@@ -100,6 +100,9 @@ def main():
         return
     pubs = por_comentar()
     print(f"Publicaciones con comentario por publicar en YouTube: {len(pubs)}")
+    if SOLO_MIRAR:  # prueba de la autorización: solo lee el nombre del canal (1 unidad), no publica nada
+        canal = pedir("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", token=acceso())
+        print("Autorización correcta. Canal:", ", ".join(c["snippet"]["title"] for c in canal.get("items", [])) or "(ninguno)")
     if not pubs:
         return
     desde = (datetime.now(timezone.utc) - timedelta(days=DIAS)).strftime("%Y-%m-%dT%H:%M:%SZ")
