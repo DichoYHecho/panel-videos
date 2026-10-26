@@ -4,7 +4,7 @@ on:
   schedule:
     # GitHub usa la hora UTC. Unos 40 minutos después de cada publicación (Madrid: 12:00 y 17:00).
     - cron: "40 16 * * *"     # todos los días: 17:40 en invierno (18:40 en verano)
-    - cron: "40 11 * * 0,6"   # sábados y domingos: 12:40 en invierno (13:40 en verano)
+    - cron: "40 11 * * *"     # todos los días: 12:40 en invierno (13:40 en verano)
   workflow_dispatch:
     inputs:
       dias:
