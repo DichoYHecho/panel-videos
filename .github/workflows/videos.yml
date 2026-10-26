@@ -97,7 +97,7 @@ jobs:
       - name: Crear los vídeos y subirlos a Airtable
         if: steps.mirar.outputs.hay == 'true'
         env:
-          LIMITE: ${{ inputs.limite || '12' }}
+          LIMITE: ${{ inputs.limite || '16' }}  # 14 publicaciones a la semana (lote del domingo) + margen
         run: python videos/generar.py
 
       - name: Guardar las voces
