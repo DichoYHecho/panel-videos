@@ -1,0 +1,87 @@
+name: Prueba E1 · subtítulos legibles (sin publicar)
+
+on:
+  workflow_dispatch:
+    inputs:
+      n:
+        description: "Cuántas publicaciones probar (sin publicar que ya tengan vídeo)"
+        default: "4"
+      autores:
+        description: "Opcional: autores concretos, separados por comas"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: videos
+  cancel-in-progress: false
+
+jobs:
+  prueba:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      N: ${{ inputs.n }}
+      AUTORES: ${{ inputs.autores }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar FFmpeg y la fuente Inter
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg fonts-inter
+
+      - name: Instalar librerías de Python
+        run: pip install -r requirements.txt
+
+      - name: Caché del modelo de Whisper (subtítulos)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-base-v1
+
+      - name: Recuperar las voces ya hechas
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}
+          restore-keys: voces-
+
+      - name: Montar cada publicación como ahora y con E1 (solo lee Airtable)
+        run: python videos/prueba_e1.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prueba-e1-dyh
+          path: salida_e1/
+          retention-days: 7
+
+      - name: Dejar los vídeos en la rama prueba-e1-dyh (para verlos sin descargar)
+        if: always() && hashFiles('salida_e1/*') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/rama && mkdir /tmp/rama && cp salida_e1/* /tmp/rama/ && cd /tmp/rama
+          git init -q -b prueba-e1-dyh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Prueba E1 (run ${{ github.run_number }})"
+          git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" prueba-e1-dyh
+
+      - name: Guardar las voces
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}
