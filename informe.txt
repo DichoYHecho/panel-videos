@@ -1,0 +1,4 @@
+Virginia Woolf: 11.89 s · voz Kore (caché, subtítulos por Whisper) · E1 {"gancho": 0.045, "cita": 0.009, "cy": 880}
+Henry David Thoreau: 15.77 s · voz Koda (caché, subtítulos por Whisper) · E1 {"gancho": 0.022, "cita": 0.008, "cy": 880}
+Sor Juana Inés de la Cruz: 9.57 s · voz Kore (caché, subtítulos por Whisper) · E1 {"gancho": 0.107, "cita": 0.057, "cy": 880}
+Richard Feynman: 17.03 s · voz Koda (caché, subtítulos por Whisper) · E1 {"gancho": 0.075, "cita": 0.01, "cy": 880}
