@@ -22,6 +22,14 @@ TEXT_W, CX = 860, 530  # ancho útil y centro (algo a la izquierda por los boton
 LOOP = 0.55            # segundos finales en los que se vuelve al primer fotograma
 
 cfg = json.load(open(sys.argv[1]))
+# Fase E1 (29 oct 2026): subtítulos siempre legibles. Solo con cfg["subs"] == "e1" (o SUBS=e1 en el entorno):
+# zona segura (más estrecho y a la izquierda; nada por debajo de y = 1480), borde negro fino en las letras,
+# palabras aún no leídas más visibles y sombra oscura detrás del texto si la foto es clara o tiene detalle.
+E1 = (cfg.get("subs") or os.environ.get("SUBS", "")) == "e1"
+if E1:
+    TEXT_W, CX = 800, 510
+BAJO_MAX = 1480                  # E1: el texto no baja de aquí (título y canal de Shorts, Reels y TikTok)
+BASE = 0.5 if E1 else 0.36       # opacidad de las palabras que la voz aún no ha leído
 
 
 # ---------- Texto: maquetación por palabras ----------
@@ -34,6 +42,11 @@ class Palabra:
         ImageDraw.Draw(im).text((pad - x0, pad - y0), txt, font=font, fill=color + (255,), anchor="ls")
         a = np.asarray(im, dtype=np.float32)[..., 3] / 255.0
         sh = gaussian_filter(np.roll(a, 4, axis=0), 7) * 0.6
+        if E1:  # borde negro fino alrededor de cada letra
+            ib = Image.new("L", im.size, 0)
+            ImageDraw.Draw(ib).text((pad - x0, pad - y0), txt, font=font, fill=255, anchor="ls",
+                                    stroke_width=max(2, font.size // 22), stroke_fill=255)
+            sh = np.maximum(sh, np.asarray(ib, dtype=np.float32) / 255.0 * 0.9)
         self.a = (a + sh * (1 - a))[..., None]
         self.c = np.array(color, np.float32)[None, None, :] / 255.0 * a[..., None]
         self.x, self.y = int(x + x0 - pad), int(base + y0 - pad)
@@ -133,31 +146,39 @@ N = int(DUR * FPS)
 T_LOOP = (N - 1) / FPS - LOOP           # en el último fotograma ya se ha vuelto del todo al primero
 
 # ---------- Capas de texto ----------
+def capas(CY):
+    toks = []
+    for g, f in enumerate(fr):
+        ws = f.split()
+        for k, w in enumerate(ws):
+            if g == 0 and k == 0: w = "“" + w
+            if g == len(fr) - 1 and k == len(ws) - 1: w = w + "”"
+            toks.append((w, BLANCO, g))
+    cita_p, alto_c, f_cita = ajustar(toks, F_BOLD, 80, 52, 700, CY)
+    for g, v in enumerate(tv_cita):  # cada palabra se ilumina cuando la lee la voz
+        ps = [p for p in cita_p if p.grupo == g]
+        pesos = np.array([len(re.sub(r"\W", "", p.txt)) + 2 for p in ps], float)
+        acum = np.concatenate([[0], np.cumsum(pesos)[:-1]]) / pesos.sum()
+        for p, a in zip(ps, acum):
+            p.t_on = V0 + v["ini"] + a * (v["fin"] - v["ini"]) - 0.05
+
+    gancho_p, alto_g, _ = ajustar(tokens_gancho(g_txt, autor), F_BOLD, 76, 52, 440, CY - 60)
+    if g_sub:
+        sub_p, _ = linea(g_sub, F_MED, 36, (215, 215, 215), CY - 60 + alto_g / 2 + 30)
+        gancho_p += sub_p
+
+    fin_p, y = linea("— " + autor, F_SEMI, 50, AMARILLO, CY + alto_c / 2 + 40)
+    p2, y = linea(cfg.get("quien", ""), F_MED, 38, BLANCO, y + 4); fin_p += p2
+    p3, y = linea(cfg.get("credito", ""), F_MED, 32, GRIS, y + 18); fin_p += p3
+    p4, y = linea(cfg.get("credito_voz", ""), F_MED, 32, GRIS, y + 2); fin_p += p4
+    return cita_p, alto_c, gancho_p, alto_g, fin_p, y
+
+
 CY = 880
-toks = []
-for g, f in enumerate(fr):
-    ws = f.split()
-    for k, w in enumerate(ws):
-        if g == 0 and k == 0: w = "“" + w
-        if g == len(fr) - 1 and k == len(ws) - 1: w = w + "”"
-        toks.append((w, BLANCO, g))
-cita_p, alto_c, f_cita = ajustar(toks, F_BOLD, 80, 52, 700, CY)
-for g, v in enumerate(tv_cita):  # cada palabra se ilumina cuando la lee la voz
-    ps = [p for p in cita_p if p.grupo == g]
-    pesos = np.array([len(re.sub(r"\W", "", p.txt)) + 2 for p in ps], float)
-    acum = np.concatenate([[0], np.cumsum(pesos)[:-1]]) / pesos.sum()
-    for p, a in zip(ps, acum):
-        p.t_on = V0 + v["ini"] + a * (v["fin"] - v["ini"]) - 0.05
-
-gancho_p, alto_g, _ = ajustar(tokens_gancho(g_txt, autor), F_BOLD, 76, 52, 440, CY - 60)
-if g_sub:
-    sub_p, _ = linea(g_sub, F_MED, 36, (215, 215, 215), CY - 60 + alto_g / 2 + 30)
-    gancho_p += sub_p
-
-fin_p, y = linea("— " + autor, F_SEMI, 50, AMARILLO, CY + alto_c / 2 + 40)
-p2, y = linea(cfg.get("quien", ""), F_MED, 38, BLANCO, y + 4); fin_p += p2
-p3, y = linea(cfg.get("credito", ""), F_MED, 32, GRIS, y + 18); fin_p += p3
-p4, y = linea(cfg.get("credito_voz", ""), F_MED, 32, GRIS, y + 2); fin_p += p4
+cita_p, alto_c, gancho_p, alto_g, fin_p, y = capas(CY)
+while E1 and y > BAJO_MAX and CY > 640:  # E1: que el autor y los créditos no caigan bajo el título de la red
+    CY -= 40
+    cita_p, alto_c, gancho_p, alto_g, fin_p, y = capas(CY)
 
 # ---------- Fondo: foto con zoom de ida y vuelta ----------
 if cfg.get("foto"):
@@ -187,6 +208,55 @@ def fondo(t):
     return np.asarray(im, dtype=np.float32) / 255.0 * (MASK * dim)
 
 
+# ---------- E1: sombra oscura detrás del texto si la foto lo pide ----------
+SOMBRA_G = SOMBRA_C = None
+INFO_E1 = {}
+
+
+def caja(pals):
+    """(x0, y0, x1, y1) de un grupo de palabras (cada Palabra lleva 26 px de margen)."""
+    if not pals: return None
+    x0, y0 = min(p.x for p in pals) + 10, min(p.y for p in pals) + 6
+    x1 = max(p.x + p.a.shape[1] for p in pals) - 10
+    y1 = max(p.y + p.a.shape[0] for p in pals) - 6
+    return max(x0, 0), max(y0, 0), min(x1, W), min(y1, H)
+
+
+def nota_fondo(F, c):
+    """0 = foto (ya oscurecida) oscura y lisa; sube si es clara, con detalle o de colores vivos."""
+    x0, y0, x1, y1 = c
+    a = F[y0:y1:4, x0:x1:4]
+    lum = a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
+    claro = float((lum > 0.45).mean())
+    g = np.zeros_like(lum)
+    g[:, 1:] = np.abs(np.diff(lum, axis=1))
+    g[1:, :] = np.maximum(g[1:, :], np.abs(np.diff(lum, axis=0)))
+    detalle = float((g > 0.08).mean())
+    mx, mn = a.max(2), a.min(2)
+    vivo = float((((mx - mn) / (mx + 1e-4) > 0.45) & (mx > 0.40)).mean())
+    return round(0.5 * claro + 0.8 * detalle + 0.5 * vivo, 3)
+
+
+def sombra(c, fuerza):
+    m = np.zeros((H, W), np.float32)
+    x0, y0, x1, y1 = c
+    m[y0:y1, x0:x1] = 1
+    return gaussian_filter(m, 28) * fuerza
+
+
+if E1:
+    cg, cc = caja(gancho_p), caja(cita_p + fin_p)
+    if cg:
+        ng = max(nota_fondo(fondo(t), cg) for t in (0.0, t_fin_gancho * 0.5))
+        INFO_E1["gancho"] = ng
+        if ng > 0.12: SOMBRA_G = sombra(cg, min(0.35 + (ng - 0.12), 0.6))
+    if cc:
+        nc = max(nota_fondo(fondo(t), cc) for t in (ini[0] + 0.3, (ini[0] + t_autor) / 2, t_autor + 0.3))
+        INFO_E1["cita"] = nc
+        if nc > 0.12: SOMBRA_C = sombra(cc, min(0.35 + (nc - 0.12), 0.6))
+    INFO_E1["cy"] = CY
+
+
 # ---------- Audio (FFmpeg): fundidos cortos para el bucle ----------
 aud = cfg["salida"].replace(".mp4", "_audio.wav")
 d = int(V0 * 1000)
@@ -209,10 +279,15 @@ for i in range(N):
     F = fondo(t)
     # Gancho: visible desde el primer fotograma; vuelve al final (después de irse la cita)
     op_g = max(1 - rampa(t, t_fin_gancho + 0.1, 0.3), rampa(t, T_LOOP + 0.25, LOOP - 0.25))
+    if SOMBRA_G is not None or SOMBRA_C is not None:  # E1: oscurece la foto detrás del texto que se ve
+        osc = 0.0
+        if SOMBRA_G is not None: osc = osc + SOMBRA_G * op_g
+        if SOMBRA_C is not None: osc = osc + SOMBRA_C * (rampa(t, ini[0] - 0.12, 0.3) * (1 - rampa(t, T_LOOP, 0.25)))
+        F *= 1 - np.minimum(osc, 0.85)[..., None]
     for p in gancho_p: p.pintar(F, op_g)
     salida = 1 - rampa(t, T_LOOP, 0.25)
     for p in cita_p:
-        base = 0.36 * rampa(t, ini[p.grupo] - 0.12, 0.15)
+        base = BASE * rampa(t, ini[p.grupo] - 0.12, 0.15)
         luz = rampa(t, p.t_on, 0.12)
         p.pintar(F, max(base, luz) * salida, dy=8 * (1 - rampa(t, ini[p.grupo] - 0.12, 0.3)))
     k = rampa(t, t_autor, 0.4) * salida
@@ -229,4 +304,4 @@ if os.path.getsize(cfg["salida"]) > 4.7e6:
                     "-c:a", "copy", "-movflags", "+faststart", tmp], check=True)
     os.replace(tmp, cfg["salida"])
 print(json.dumps({"salida": cfg["salida"], "duracion": DUR, "mb": round(os.path.getsize(cfg["salida"]) / 1e6, 2),
-                  "gancho": g_txt}, ensure_ascii=False))
+                  "gancho": g_txt, **({"e1": INFO_E1} if E1 else {})}, ensure_ascii=False))
