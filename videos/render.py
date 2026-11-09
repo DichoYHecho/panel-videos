@@ -10,6 +10,10 @@ from comun import frases, gancho
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy.ndimage import gaussian_filter
+try:
+    from cta import PieCta  # aviso «Síguenos»; si falla, el vídeo sale igual que antes
+except Exception:
+    PieCta = None
 
 W, H, FPS = 1080, 1920, 30
 AMARILLO = (245, 197, 24)
@@ -132,6 +136,19 @@ DUR = round(V0 + tv[-1]["fin"] + 1.05, 2)
 N = int(DUR * FPS)
 T_LOOP = (N - 1) / FPS - LOOP           # en el último fotograma ya se ha vuelto del todo al primero
 
+# ---------- Aviso «Síguenos» (flechas que se abren), arriba y hacia la mitad del vídeo ----------
+CTA = None
+if PieCta is not None:
+    try:
+        _dur = PieCta.DUR_MIN
+        _t0 = max(t_fin_gancho + 0.3, (t_fin_gancho + T_LOOP) / 2 - _dur / 2)
+        _t0 = min(_t0, T_LOOP - 0.2 - _dur)  # tiene que acabar antes de que vuelva el gancho (bucle)
+        if _t0 >= t_fin_gancho + 0.1:
+            CTA = PieCta(CX, 300, _t0, _t0 + _dur)
+    except Exception as e:
+        print("aviso Síguenos desactivado:", e)
+        CTA = None
+
 # ---------- Capas de texto ----------
 CY = 880
 toks = []
@@ -217,6 +234,11 @@ for i in range(N):
         p.pintar(F, max(base, luz) * salida, dy=8 * (1 - rampa(t, ini[p.grupo] - 0.12, 0.3)))
     k = rampa(t, t_autor, 0.4) * salida
     for p in fin_p: p.pintar(F, k, dy=14 * (1 - k))
+    if CTA is not None:
+        try:
+            CTA.pintar(F, t)
+        except Exception:
+            CTA = None
     enc.stdin.write((np.clip(F, 0, 1) * 255 + 0.5).astype(np.uint8).tobytes())
 enc.stdin.close(); enc.wait()
 os.remove(aud)
