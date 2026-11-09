@@ -1,0 +1,36 @@
+name: Prueba del aviso Síguenos (solo rama cta-sigenos)
+on:
+  push:
+    branches: [cta-sigenos]
+    paths:
+      - ".github/workflows/prueba_cta.yml"
+      - "videos/prueba_cta.py"
+      - "videos/cta.py"
+      - "videos/render.py"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prueba:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instalar FFmpeg y la fuente Inter
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg fonts-inter
+      - name: Instalar librerías de Python
+        run: pip install numpy pillow scipy
+      - name: Montar el vídeo de muestra
+        run: python3 videos/prueba_cta.py
+      - name: Dejar la muestra en la rama (solo para verla)
+        run: |
+          git config user.name "Prueba aviso Síguenos"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f prueba_cta/muestra.mp4 prueba_cta/hoja.png prueba_cta/hoja_cta.png
+          git commit -m "Prueba: vídeo de muestra con el aviso Síguenos" || echo "sin cambios"
+          git push
