@@ -7,6 +7,8 @@ import json, os, urllib.parse, urllib.request
 
 BASE, T_PUB = "appeuC0uIAlqqp1h9", "tbl7ynqI9bJrWtR0m"
 REHACER = os.environ.get("REHACER", "1") == "1"
+# Formato quiz (21 nov 2026): los vídeos sin «-quiz» se rehacen; en el formato clásico, los que no llevan «-v2»
+MARCA = "-quiz.mp4" if (os.environ.get("FORMATO") or "").strip().lower() == "quiz" else "-v2.mp4"
 params = [("pageSize", "100"), ("filterByFormula", "{Estado}!='Publicado'"),
           ("fields[]", "Frase"), ("fields[]", "Crédito foto"), ("fields[]", "Vídeo"), ("fields[]", "Título vídeo")]
 n, viejos, offset = 0, 0, None
@@ -24,8 +26,8 @@ while True:
         elif f.get("Vídeo") and not f.get("Título vídeo"):
             n += 1  # vídeo hecho al que le falta el título de YouTube
         elif (REHACER and f.get("Vídeo") and "[" not in (f.get("Crédito foto") or "")
-              and not any("-v2.mp4" in (a.get("filename") or "") for a in f["Vídeo"])):
-            viejos += 1  # vídeo con la voz de antes: se rehace con la de Gemini
+              and not any(MARCA in (a.get("filename") or "") for a in f["Vídeo"])):
+            viejos += 1  # vídeo del formato o la voz de antes: se rehace
     offset = d.get("offset")
     if not offset: break
 print(f"Publicaciones que necesitan vídeo: {n}; con la voz de antes: {viejos}")

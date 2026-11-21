@@ -39,8 +39,13 @@ TOKEN = os.environ.get("AIRTABLE_TOKEN", "")
 LIMITE = int(os.environ.get("LIMITE") or 12)
 PRUEBA = os.environ.get("PRUEBA_LOCAL")
 MUJER = {"Q6581072", "Q1052281"}  # Wikidata P21: mujer, mujer trans
-MARCA = "-v2"  # vídeos con la voz de Gemini (23 oct 2026); los que no la llevan se rehacen
 REHACER = os.environ.get("REHACER", "1") == "1"
+# Formato del vídeo (21 nov 2026). «clasico» = render.py (el de siempre); «quiz» = «¿Quién escribió esto?» con
+# Remotion (quiz.py). Se elige con la variable del repositorio FORMATO (Settings › Variables); por defecto, clásico.
+FORMATO = (os.environ.get("FORMATO") or "clasico").strip().lower()
+# Marca del archivo: los vídeos que no la llevan se rehacen (después de los que no tienen vídeo)
+MARCA = "-quiz" if FORMATO == "quiz" else "-v2"  # -v2: voz de Gemini (23 oct 2026)
+BANCO = []  # formato quiz: [(Autor, título Wikipedia)] de toda la tabla Citas (de ahí salen las opciones falsas)
 
 
 # ---------- Airtable ----------
@@ -83,6 +88,28 @@ def titulo_video(frase, autor):
         return f"{base}{frase}»"
     corte = frase[:100 - len(base) - 2].rsplit(" ", 1)[0].rstrip(",;:.¿¡ ")
     return f"{base}{corte}…»"
+
+
+def titulo_quiz(frase):
+    """Formato quiz: el título NO dice el autor (destriparía el quiz). «¿Quién escribió esto? «cita»» (máx. 100)."""
+    base = "¿Quién escribió esto? «"
+    if len(base) + len(frase) + 1 <= 100:
+        return f"{base}{frase}»"
+    corte = frase[:100 - len(base) - 2].rsplit(" ", 1)[0].rstrip(",;:.¿¡ ")
+    return f"{base}{corte}…»"
+
+
+def caption_con_otras_fotos(cap, creditos):
+    """Formato quiz: añade al Caption, tras la línea «Foto:», los créditos de las fotos de las otras opciones."""
+    if not cap or not creditos:
+        return cap
+    linea = "Fotos de las otras opciones: " + "; ".join(creditos)
+    lineas = [l for l in cap.split("\n") if not l.startswith("Fotos de las otras opciones:")]
+    for i, l in enumerate(lineas):
+        if l.startswith("Foto:"):
+            lineas.insert(i + 1, linea)
+            return "\n".join(lineas)
+    return "\n".join(lineas + [linea])
 
 
 def subir_video(rec_id, ruta, nombre):
@@ -261,6 +288,9 @@ def hacer_video(rec_id, pub, cita, tmp):
     if not (pub.get(CAMPO_QUIEN) or "").strip() and quien:
         cambios[CAMPO_QUIEN] = quien
 
+    if FORMATO == "quiz":
+        return hacer_quiz(rec_id, pub, cita, frase, autor, quien, mujer, foto, credito, cambios, tmp)
+
     # Voz (gancho + cita + autor) y música
     g_txt, _ = gancho(autor, cita.get("Fuente", ""))
     trozos = [g_txt] + frases(frase) + [autor + "."]
@@ -289,6 +319,31 @@ def hacer_video(rec_id, pub, cita, tmp):
     return "ok", info, cambios
 
 
+def hacer_quiz(rec_id, pub, cita, frase, autor, quien, mujer, foto, credito, cambios, tmp):
+    """Formato quiz (quiz.py + Remotion). Sin la voz buena de Gemini o sin opciones con foto, se salta y la repesca
+    lo reintenta. Añade al Caption los créditos de las fotos de las otras opciones (en el vídeo no sale ninguno)."""
+    import quiz
+    from tts import SinVoz as _SinVoz
+    if not BANCO:
+        return "saltada", "formato quiz sin banco de citas (¿PRUEBA_LOCAL?)", cambios
+    try:
+        props, desc = quiz.preparar(rec_id, frase, autor, cita, quien, mujer, foto, BANCO, tmp)
+    except _SinVoz as e:
+        return "saltada", f"sin voz de Gemini ({str(e)[:160]}); se reintenta otro día", cambios
+    except (RuntimeError, requests.RequestException) as e:
+        return "saltada", f"quiz: {str(e)[:160]}; se reintenta otro día", cambios
+    salida = os.path.join(tmp, f"{slug(autor)}-{rec_id[-6:]}{MARCA}.mp4")
+    mb, dur = quiz.renderizar(props, salida, tmp, sum(rec_id.encode()) % 1000)
+    cap = cambios.get("Caption", pub.get("Caption") or "")
+    cap_nuevo = caption_con_otras_fotos(cap, [limpiar_credito(c) for c in desc["creditos_opciones"]])
+    if cap_nuevo != (pub.get("Caption") or ""):
+        cambios["Caption"] = cap_nuevo
+    info = {"salida": salida, "duracion": dur, "mb": mb,
+            "gancho": f"quiz {' / '.join(desc['opciones'])} (correcta {desc['letra_correcta']}, tema {desc['tema']})",
+            "voz": f"{ULTIMO.get('voz')} ({ULTIMO.get('modelo')}, {ULTIMO.get('metodo')})", "quien": quien, "credito": credito}
+    return "ok", info, cambios
+
+
 def main():
     if PRUEBA:
         pubs = json.load(open(PRUEBA))
@@ -314,10 +369,15 @@ def main():
               f"Se harán como mucho {LIMITE}.")
         pendientes += rehacer
         citas = listar(T_CITAS, ["Cita", "Autor", "Wikipedia", "Fuente", "Foto manual"]) if pendientes else []
+        if FORMATO == "quiz":
+            BANCO[:] = list(dict.fromkeys((c["fields"].get("Autor", "").strip(), c["fields"].get("Wikipedia"))
+                                          for c in citas if c["fields"].get("Wikipedia")))
+            print(f"Formato quiz: {len(BANCO)} autores en el banco para las opciones.")
 
     filas, errores, hechos = [], 0, 0
     for rec_id, pub in pendientes:
         if hechos >= LIMITE or len(_agotados) >= len(MODELOS): break  # sin cupo de voz: otro día
+        if FORMATO == "quiz" and MODELOS[0] in _agotados: break  # el quiz solo usa la voz buena
         autor = pub.get("Autor", "?")
         t0 = time.time()
         try:
@@ -334,7 +394,8 @@ def main():
                         nuevo = subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
                         if pub.get(CAMPO_VIDEO) and nuevo:  # rehecho: se queda solo el vídeo nuevo
                             cambios[CAMPO_VIDEO] = [{"id": nuevo}]
-                        cambios[CAMPO_TITULO] = titulo_video(pub["Frase"].strip(), autor.strip())
+                        cambios[CAMPO_TITULO] = (titulo_quiz(pub["Frase"].strip()) if FORMATO == "quiz"
+                                                 else titulo_video(pub["Frase"].strip(), autor.strip()))
                         actualizar([(rec_id, cambios)])  # título, crédito y «Quién era»: 1 sola llamada
                     hechos += 1
                     msg = (f"{info['duracion']} s, {info['mb']} MB, voz {info['voz']}, "

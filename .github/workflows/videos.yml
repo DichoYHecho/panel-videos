@@ -39,11 +39,13 @@ permissions:
 jobs:
   videos:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90  # el formato quiz tarda más por vídeo (Remotion + Whisper «medium»)
     env:
       AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       REHACER: ${{ (github.event_name != 'workflow_dispatch' || inputs.rehacer) && '1' || '0' }}
+      # Formato del vídeo: variable del repositorio FORMATO («quiz» o «clasico»). Sin la variable, el clásico.
+      FORMATO: ${{ vars.FORMATO || 'clasico' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -80,11 +82,33 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Caché del modelo de Whisper (subtítulos)
-        if: steps.mirar.outputs.hay == 'true'
+        if: steps.mirar.outputs.hay == 'true' && env.FORMATO != 'quiz'
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
           key: whisper-base-v1
+
+      # ---- Solo con FORMATO=quiz: Remotion (vídeo) y Whisper «medium» (tiempo de cada palabra) ----
+      - uses: actions/setup-node@v5
+        if: steps.mirar.outputs.hay == 'true' && env.FORMATO == 'quiz'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+
+      - name: Instalar Remotion y su navegador
+        if: steps.mirar.outputs.hay == 'true' && env.FORMATO == 'quiz'
+        working-directory: remotion
+        run: |
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Caché del modelo de Whisper «medium» (formato quiz)
+        if: steps.mirar.outputs.hay == 'true' && env.FORMATO == 'quiz'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-medium-v1
 
       - name: Recuperar las voces ya hechas
         if: steps.mirar.outputs.hay == 'true'
