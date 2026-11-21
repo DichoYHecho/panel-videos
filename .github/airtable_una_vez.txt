@@ -1,0 +1,5 @@
+# Cambio puntual en Airtable (videos/airtable_una_vez.py). Subir este archivo a la rama formato-quiz lo ejecuta.
+ACCION=leer
+AUTOR=Simone de Beauvoir
+CAMPO=
+VALOR=

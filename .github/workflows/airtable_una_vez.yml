@@ -1,0 +1,20 @@
+name: Airtable (cambio puntual)
+
+# Se lanza al cambiar .github/airtable_una_vez.txt en la rama formato-quiz. Con ACCION=leer no escribe nada.
+on:
+  push:
+    branches: [formato-quiz]
+    paths: [".github/airtable_una_vez.txt"]
+
+permissions:
+  contents: read
+
+jobs:
+  airtable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 videos/airtable_una_vez.py
