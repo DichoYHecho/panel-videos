@@ -1,5 +1,6 @@
 # Cambio puntual en Airtable (videos/airtable_una_vez.py). Subir este archivo a la rama formato-quiz lo ejecuta.
-ACCION=leer
+# 21 nov 2026: el quiz de Simone de Beauvoir se subió a mano a YouTube; su versión antigua sale de la cola de Make.
+ACCION=escribir
 AUTOR=Simone de Beauvoir
-CAMPO=
-VALOR=
+CAMPO=Estado
+VALOR=Por Revisar
