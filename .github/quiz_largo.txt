@@ -1,4 +1,5 @@
 # Vídeo largo quiz: cambiar este archivo y subirlo a la rama formato-quiz lanza el montaje (solo lee Airtable).
 # 22 nov 2026: primera versión con 20 frases reales, sin voz.
+# 22 nov 2026 (2): mismas preguntas, con los arreglos de datos (títulos, años, gentilicio, siglos).
 SEMILLA=1
 PREGUNTAS_POR_NIVEL=5
