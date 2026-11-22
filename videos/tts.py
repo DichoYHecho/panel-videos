@@ -208,23 +208,32 @@ def alinear_palabras(x, trozos, modelo="medium"):
     from faster_whisper import WhisperModel
     x16 = np.interp(np.linspace(0, len(x) - 1, int(len(x) * 16000 / SR)), np.arange(len(x)), x).astype(np.float32)
     m = WhisperModel(modelo, device="cpu", compute_type="int8")
-    segs, _ = m.transcribe(x16, language="es", word_timestamps=True, initial_prompt=" ".join(trozos)[:400])
-    oidas, t_oidas = [], []
-    for s in segs:
-        for w in (s.words or []):
-            for tok in norm(w.word):
-                oidas.append(tok)
-                t_oidas.append(w.start)
     guion, de_trozo = [], []
     for k, t in enumerate(trozos):
         for tok in norm(t):
             guion.append(tok)
             de_trozo.append(k)
-    tiempos = [None] * len(guion)
-    for blk in difflib.SequenceMatcher(None, guion, oidas, autojunk=False).get_matching_blocks():
-        for q in range(blk.size):
-            tiempos[blk.a + q] = t_oidas[blk.b + q]
-    conocidos = [i for i, t in enumerate(tiempos) if t is not None]
+    # Con el guion como pista, a veces Whisper da por dicho casi todo y solo transcribe el final (23 nov 2026,
+    # vídeo largo): entonces se repite sin pista y se queda el intento que más palabras reconoce.
+    mejor = None
+    for pista in (" ".join(trozos)[:400], None):
+        segs, _ = m.transcribe(x16, language="es", word_timestamps=True, initial_prompt=pista)
+        oidas, t_oidas = [], []
+        for s in segs:
+            for w in (s.words or []):
+                for tok in norm(w.word):
+                    oidas.append(tok)
+                    t_oidas.append(w.start)
+        tiempos = [None] * len(guion)
+        for blk in difflib.SequenceMatcher(None, guion, oidas, autojunk=False).get_matching_blocks():
+            for q in range(blk.size):
+                tiempos[blk.a + q] = t_oidas[blk.b + q]
+        conocidos = [i for i, t in enumerate(tiempos) if t is not None]
+        if mejor is None or len(conocidos) > len(mejor[1]):
+            mejor = (tiempos, conocidos, oidas)
+        if len(conocidos) >= len(guion) * 0.6:
+            break
+    tiempos, conocidos, oidas = mejor
     if len(conocidos) < len(guion) * 0.6:
         raise RuntimeError(f"Whisper no reconoce bien la voz: se repite otro día ({len(conocidos)}/{len(guion)} palabras; "
                            f"oyó: {' '.join(oidas)[:300]})")

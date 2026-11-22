@@ -3,5 +3,6 @@
 # 22 nov 2026 (2): mismas preguntas, con los arreglos de datos (títulos, años, gentilicio, siglos).
 # 23 nov 2026: mismas preguntas, con narración (5 audios de la voz de Gemini).
 # 23 nov 2026 (2): repetición para revisar la sincronización de la voz (el audio ya está en caché).
+# 23 nov 2026 (3): Whisper sin pista cuando la pista le hace saltarse la voz.
 SEMILLA=1
 PREGUNTAS_POR_NIVEL=5
