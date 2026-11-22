@@ -1,6 +1,6 @@
 # Cambio puntual en Airtable (videos/airtable_una_vez.py). Subir este archivo a la rama formato-quiz lo ejecuta.
-# 21 nov 2026: el quiz de Simone de Beauvoir se subió a mano a YouTube; su versión antigua sale de la cola de Make.
+# 22 nov 2026: el quiz de Rabindranath Tagore se sube a mano a YouTube; su versión clásica sale de la cola de Make.
 ACCION=escribir
-AUTOR=Simone de Beauvoir
+AUTOR=Rabindranath Tagore
 CAMPO=Estado
 VALOR=Por Revisar
