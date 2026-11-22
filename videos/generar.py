@@ -19,7 +19,7 @@
 
 Variables: AIRTABLE_TOKEN y GEMINI_API_KEY (secrets de GitHub), REHACER (1 por defecto), LIMITE (máximo de vídeos por ejecución),
 PRUEBA_LOCAL (opcional: JSON con publicaciones de prueba; no toca Airtable, Wikipedia ni Wikidata)."""
-import base64, difflib, json, os, re, subprocess, sys, tempfile, time, unicodedata, urllib.parse
+import base64, difflib, html, json, os, re, subprocess, sys, tempfile, time, unicodedata, urllib.parse
 import requests
 from comun import frases, gancho
 from tts import sintetizar, SinVoz, ULTIMO, MODELOS, _agotados
@@ -111,7 +111,10 @@ def etiqueta(nombre):
 def caption_quiz(frase, nombres, creditos, fuente):
     """Descripción del quiz SIN destripar la respuesta: los tres nombres por igual (también en las fotos y en los
     hashtags) y la fuente al final, avisando de que la contiene. `creditos` = {nombre: crédito de su foto}."""
-    fotos = "; ".join(f"{n}: {creditos.get(n, '')}" for n in nombres)
+    def limpio(c):  # «Elliott &amp; Fry (Public domain)» → «Elliott & Fry (dominio público)»
+        c = html.unescape(c or "")
+        return re.sub(r"\bUnknown( author)?\b", "autor desconocido", re.sub(r"Public domain", "dominio público", c, flags=re.I))
+    fotos = "; ".join(f"{n}: {limpio(creditos.get(n, ''))}" for n in nombres)
     tags = ["#frases", "#frasescelebres", "#culturageneral", "#quiz"] + [etiqueta(n) for n in nombres] + ["#reflexiones"]
     return (f"¿{nombres[0]}, {nombres[1]} o {nombres[2]}? Escribe tu respuesta en los comentarios 👇\n"
             "La solución, al final del vídeo.\n\n"
