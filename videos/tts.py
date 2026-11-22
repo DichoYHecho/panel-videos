@@ -226,7 +226,8 @@ def alinear_palabras(x, trozos, modelo="medium"):
             tiempos[blk.a + q] = t_oidas[blk.b + q]
     conocidos = [i for i, t in enumerate(tiempos) if t is not None]
     if len(conocidos) < len(guion) * 0.6:
-        raise RuntimeError("Whisper no reconoce bien la voz: se repite otro día")
+        raise RuntimeError(f"Whisper no reconoce bien la voz: se repite otro día ({len(conocidos)}/{len(guion)} palabras; "
+                           f"oyó: {' '.join(oidas)[:300]})")
     for i in range(len(guion)):
         if tiempos[i] is None:
             antes = max((j for j in conocidos if j < i), default=None)
@@ -272,7 +273,13 @@ def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, pref
     if len(idx):
         x = x[max(idx[0] - int(0.02 * SR), 0):min(idx[-1] + int(0.06 * SR), len(x))]
     x = (x / (np.max(np.abs(x)) + 1e-6) * 0.9).astype(np.float32)
-    por_trozo = alinear_palabras(x, limpios)
+    try:
+        por_trozo = alinear_palabras(x, limpios)
+    except Exception:
+        if os.environ.get("DEPURAR_VOZ"):  # guarda el audio para escucharlo/revisarlo
+            os.makedirs(os.environ["DEPURAR_VOZ"], exist_ok=True)
+            sf.write(os.path.join(os.environ["DEPURAR_VOZ"], f"fallo-{clave}.wav"), x, SR, subtype="PCM_16")
+        raise
     # Partes: se corta a mitad de la pausa entre la última palabra de una parte y la primera de la siguiente
     partes, k = [], 0
     for n in grupos:

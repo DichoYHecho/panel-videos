@@ -63,6 +63,8 @@ jobs:
 
       - name: Montar el vídeo largo (solo lee Airtable)
         run: python videos/quiz_largo.py
+        env:
+          DEPURAR_VOZ: salida_largo/depurar
 
       - uses: actions/upload-artifact@v4
         if: always()
