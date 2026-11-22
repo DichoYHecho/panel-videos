@@ -1,18 +1,36 @@
 import React from 'react';
-import {Composition} from 'remotion';
+import {Composition, Still} from 'remotion';
 import {Quiz, duracionQuiz} from './Quiz';
+import {Miniatura, type DatosMiniatura} from './Miniatura';
 import {EJEMPLO, type DatosQuiz} from './datos';
+import {QuizLargo, duracionQuizLargo, type DatosQuizLargo} from './QuizLargo';
+import {QUIZ_LARGO_PRUEBA} from './datosLargo';
 
-// Los datos de cada vídeo llegan con --props (los prepara videos/quiz.py); EJEMPLO solo sirve para el Studio.
+const MINIATURA_EJEMPLO: DatosMiniatura = {foto: 'ejemplo/simone.jpg', recorte: 'ejemplo/simone_recorte.png', proporcion: 689 / 516, tema: 'coraje', cabeza: [0.57, 0.38]};
+
+// Los datos de cada vídeo llegan con --props (los prepara videos/quiz.py); los EJEMPLO solo sirven para el Studio.
 export const Root: React.FC = () => (
-	<Composition
-		id="Quiz"
-		component={Quiz}
-		defaultProps={EJEMPLO}
-		durationInFrames={duracionQuiz(EJEMPLO)}
-		calculateMetadata={({props}) => ({durationInFrames: duracionQuiz(props as DatosQuiz)})}
-		fps={30}
-		width={1080}
-		height={1920}
-	/>
+	<>
+		<Composition
+			id="Quiz"
+			component={Quiz}
+			defaultProps={EJEMPLO}
+			durationInFrames={duracionQuiz(EJEMPLO)}
+			calculateMetadata={({props}) => ({durationInFrames: duracionQuiz(props as DatosQuiz)})}
+			fps={30}
+			width={1080}
+			height={1920}
+		/>
+		<Still id="Miniatura" component={Miniatura} defaultProps={MINIATURA_EJEMPLO} width={1080} height={1920} />
+		<Composition
+			id="QuizLargo"
+			component={QuizLargo}
+			defaultProps={QUIZ_LARGO_PRUEBA}
+			durationInFrames={duracionQuizLargo(QUIZ_LARGO_PRUEBA)}
+			calculateMetadata={({props}) => ({durationInFrames: duracionQuizLargo(props as DatosQuizLargo)})}
+			fps={30}
+			width={1920}
+			height={1080}
+		/>
+	</>
 );

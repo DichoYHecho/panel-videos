@@ -186,7 +186,7 @@ export const Comenta: React.FC<{t: number; t0: number; t1: number; cx: number; t
 
 // ---------------------------------------------------------------- mapa del país
 /** id = código ISO 3166-1 numérico (Wikidata P299), como en Natural Earth / world-atlas. */
-export type Pais = {nombre: string; id: string; ciudad: string; lon: number; lat: number};
+export type Pais = {nombre: string; id: string; ciudad: string; lon: number; lat: number; bandera?: string}; // bandera: SVG de flag-icons (MIT)
 
 /**
  * Encuadre: los trozos del país cercanos al lugar de nacimiento (así no salen Canarias, Alaska ni territorios

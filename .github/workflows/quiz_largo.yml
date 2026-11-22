@@ -1,0 +1,59 @@
+name: Vídeo largo quiz (sin publicar)
+
+# Se lanza al cambiar .github/quiz_largo.txt en la rama formato-quiz. Solo lee Airtable: no escribe ni publica.
+on:
+  push:
+    branches: [formato-quiz]
+    paths: [".github/quiz_largo.txt"]
+
+concurrency:
+  group: videos   # nunca a la vez que el montaje diario
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  largo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+
+      - name: Instalar FFmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg
+
+      - name: Instalar librerías de Python
+        run: pip install -r requirements.txt
+
+      - name: Instalar Remotion y su navegador
+        working-directory: remotion
+        run: |
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+
+      - name: Montar el vídeo largo (solo lee Airtable)
+        run: python videos/quiz_largo.py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quiz-largo
+          path: salida_largo/
+          retention-days: 3
