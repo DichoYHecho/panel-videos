@@ -90,26 +90,35 @@ def titulo_video(frase, autor):
     return f"{base}{corte}…»"
 
 
-def titulo_quiz(frase):
-    """Formato quiz: el título NO dice el autor (destriparía el quiz). «¿Quién escribió esto? «cita»» (máx. 100)."""
-    base = "¿Quién escribió esto? «"
+def titulo_quiz(frase, nombres):
+    """Formato quiz (22 nov 2026): los TRES nombres de las opciones van en el título (son lo que la gente busca y
+    lo que ve en los Shorts que ya le gustan: «Frase de Voltaire…»), sin decir cuál es el correcto.
+    «¿Frase de A, B o C? «cita»» (máx. 100). Los nombres siempre enteros; si no cabe, se corta la cita con «…»."""
+    base = f"¿Frase de {nombres[0]}, {nombres[1]} o {nombres[2]}? «"
     if len(base) + len(frase) + 1 <= 100:
         return f"{base}{frase}»"
+    if len(base) > 80:
+        return base.rstrip(" «")
     corte = frase[:100 - len(base) - 2].rsplit(" ", 1)[0].rstrip(",;:.¿¡ ")
     return f"{base}{corte}…»"
 
 
-def caption_con_otras_fotos(cap, creditos):
-    """Formato quiz: añade al Caption, tras la línea «Foto:», los créditos de las fotos de las otras opciones."""
-    if not cap or not creditos:
-        return cap
-    linea = "Fotos de las otras opciones: " + "; ".join(creditos)
-    lineas = [l for l in cap.split("\n") if not l.startswith("Fotos de las otras opciones:")]
-    for i, l in enumerate(lineas):
-        if l.startswith("Foto:"):
-            lineas.insert(i + 1, linea)
-            return "\n".join(lineas)
-    return "\n".join(lineas + [linea])
+def etiqueta(nombre):
+    s = unicodedata.normalize("NFKD", nombre).encode("ascii", "ignore").decode().lower()
+    return "#" + re.sub(r"[^a-z0-9]", "", s)
+
+
+def caption_quiz(frase, nombres, creditos, fuente):
+    """Descripción del quiz SIN destripar la respuesta: los tres nombres por igual (también en las fotos y en los
+    hashtags) y la fuente al final, avisando de que la contiene. `creditos` = {nombre: crédito de su foto}."""
+    fotos = "; ".join(f"{n}: {creditos.get(n, '')}" for n in nombres)
+    tags = ["#frases", "#frasescelebres", "#culturageneral", "#quiz"] + [etiqueta(n) for n in nombres] + ["#reflexiones"]
+    return (f"¿{nombres[0]}, {nombres[1]} o {nombres[2]}? Escribe tu respuesta en los comentarios 👇\n"
+            "La solución, al final del vídeo.\n\n"
+            f"«{frase}»\n\n"
+            f"Fotos: {fotos}\n"
+            f"Fuente de la frase (contiene la respuesta): {fuente}\n\n"
+            + " ".join(tags))
 
 
 def subir_video(rec_id, ruta, nombre):
@@ -334,11 +343,13 @@ def hacer_quiz(rec_id, pub, cita, frase, autor, quien, mujer, foto, credito, cam
         return "saltada", f"quiz: {str(e)[:160]}; se reintenta otro día", cambios
     salida = os.path.join(tmp, f"{slug(autor)}-{rec_id[-6:]}{MARCA}.mp4")
     mb, dur = quiz.renderizar(props, salida, tmp, sum(rec_id.encode()) % 1000)
-    cap = cambios.get("Caption", pub.get("Caption") or "")
-    cap_nuevo = caption_con_otras_fotos(cap, [limpiar_credito(c) for c in desc["creditos_opciones"]])
+    # descripción propia del quiz (la del formato clásico dice el autor y destriparía la respuesta)
+    creditos = {c.split(": ", 1)[0]: limpiar_credito(c.split(": ", 1)[1]) for c in desc["creditos_opciones"] if ": " in c}
+    creditos[autor] = limpiar_credito(credito or "")
+    cap_nuevo = caption_quiz(frase, desc["opciones"], creditos, cita.get("Fuente", ""))
     if cap_nuevo != (pub.get("Caption") or ""):
         cambios["Caption"] = cap_nuevo
-    info = {"salida": salida, "duracion": dur, "mb": mb,
+    info = {"salida": salida, "duracion": dur, "mb": mb, "titulo": titulo_quiz(frase, desc["opciones"]),
             "gancho": f"quiz {' / '.join(desc['opciones'])} (correcta {desc['letra_correcta']}, tema {desc['tema']})",
             "voz": f"{ULTIMO.get('voz')} ({ULTIMO.get('modelo')}, {ULTIMO.get('metodo')})", "quien": quien, "credito": credito}
     return "ok", info, cambios
@@ -394,7 +405,7 @@ def main():
                         nuevo = subir_video(rec_id, info["salida"], os.path.basename(info["salida"]))
                         if pub.get(CAMPO_VIDEO) and nuevo:  # rehecho: se queda solo el vídeo nuevo
                             cambios[CAMPO_VIDEO] = [{"id": nuevo}]
-                        cambios[CAMPO_TITULO] = (titulo_quiz(pub["Frase"].strip()) if FORMATO == "quiz"
+                        cambios[CAMPO_TITULO] = (info["titulo"] if FORMATO == "quiz"
                                                  else titulo_video(pub["Frase"].strip(), autor.strip()))
                         actualizar([(rec_id, cambios)])  # título, crédito y «Quién era»: 1 sola llamada
                     hechos += 1

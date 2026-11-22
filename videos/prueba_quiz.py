@@ -58,7 +58,12 @@ def main():
                 nombre = f"{g.slug(autor)}-{p['id'][-6:]}-quiz.mp4"
                 mb, dur = quiz.renderizar(props, os.path.abspath(os.path.join(SALIDA, nombre)), tmp, sum(p["id"].encode()) % 1000)
             credito = g.limpiar_credito((f.get(g.CAMPO_CREDITO) or "").strip())
-            descripcion = (f"Fuente: {cita.get('Fuente', '')} · Foto: {credito} · Otras fotos: " + "; ".join(desc["creditos_opciones"]))
+            creditos = {c.split(": ", 1)[0]: g.limpiar_credito(c.split(": ", 1)[1]) for c in desc["creditos_opciones"] if ": " in c}
+            creditos[autor] = credito
+            titulo = g.titulo_quiz(frase, desc["opciones"])
+            caption = g.caption_quiz(frase, desc["opciones"], creditos, cita.get("Fuente", ""))
+            open(os.path.join(SALIDA, nombre[:-4] + ".txt"), "w", encoding="utf-8").write(f"{titulo}\n\n{caption}\n")
+            descripcion = f"Título: {titulo} · (descripción completa en el .txt)"
             filas.append(f"| {autor} | {' / '.join(desc['opciones'])} (correcta: {desc['letra_correcta']}) | {desc['tema']} | "
                          f"{(props.get('pais') or {}).get('nombre', '—')} | {dur} s | {mb} MB | {int(time.time() - t0)} s | {descripcion} |")
             print(f"[ok] {autor}: {dur} s, {mb} MB · {desc}", flush=True)
