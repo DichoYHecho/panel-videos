@@ -116,15 +116,26 @@ def lugares_y_paises(qids):
 
 
 # ---------------------------------------------------------------- textos
-def dato_fuente(fuente):
-    """«Aparece en «El segundo sexo» (1949).» / «La escribió en una carta.» o None."""
-    et = quiz.etiqueta_fuente(fuente or "")
-    if not et:
+def dato_fuente(fuente, a):
+    """«Aparece en «El segundo sexo» (1949).» / «Lo dejó escrito en una carta.» o None si la fuente no es clara.
+    El año solo se pone si cae dentro de su vida (la Fuente puede llevar números de verso o de página)."""
+    fuente = fuente or ""
+    m = re.search(r"«([^«»]{3,40})»", fuente)  # si la Fuente trae un título entre comillas, ese es la obra
+    et = m.group(1).strip() if m else quiz.etiqueta_fuente(fuente)
+    if not et or re.search(r"[«»\"“”]|t[íi]tulo|exclamaci|famos|atribu|citad|recogid", et, re.I):
         return None
-    a = quiz.anio_fuente(fuente)
+    if a["nombre"].lower() in et.lower():
+        return None
+    anio = quiz.anio_fuente(fuente)
+    if anio and not ((a["nace"] or -9999) < anio <= (a["muere"] or 9999)):
+        anio = None
     if et in SITIO_TIPO:
-        return f"Lo dejó escrito {SITIO_TIPO[et]}" + (f" en {a}." if a else ".")
-    return f"Aparece en «{et}»" + (f" ({a})." if a else ".")
+        return f"Lo dejó escrito {SITIO_TIPO[et]}" + (f" en {anio}." if anio else ".")
+    if re.match(r"Carta a \w", et):  # «Carta a Meneceo» → «Lo escribió en una carta a Meneceo.»
+        return f"Lo escribió en una c{et[1:]}" + (f" en {anio}." if anio else ".")
+    if re.match(r"(Art[íi]culo|Poema|Carta|Discurso|Ensayo|Novela|Libro|Obra)\b", et):
+        return None  # «Artículo» o «Poema» sin título claro
+    return f"Aparece en «{et}»" + (f" ({anio})." if anio else ".")
 
 
 def dato_vida(a):
@@ -139,8 +150,8 @@ def profesion(desc):
     """«escritor, poeta y dramaturgo español (1580-1645)» → «Escritor, poeta y dramaturgo» (sin gentilicio si cabe)."""
     d = re.sub(r"\s*\([^)]*\)", "", desc or "").strip().rstrip(".")
     palabras = d.split()
-    if len(palabras) > 1 and re.search(r"(és|esa|ano|ana|ino|ina|ense|o|a)$", palabras[-1]) and palabras[-1][0].islower() \
-            and palabras[-2] not in ("y", "e", "de", "del"):
+    if len(palabras) > 1 and re.search(r"(és|esa|ol|ola|ano|ana|ino|ina|ense|o|a)$", palabras[-1]) and palabras[-1][0].islower() \
+            and palabras[-2] not in ("y", "e", "de", "del") and not palabras[-2].endswith(","):
         d = " ".join(palabras[:-1])  # quita el gentilicio del final («español», «francesa»…)
     if len(d) > 34:
         d = d[:34].rsplit(" ", 1)[0].rstrip(",; y")
@@ -356,7 +367,7 @@ def pregunta(m, tipo, nivel, a, autores):
             return None
         ops = [tarjeta(m, a)] + [tarjeta(m, o) for o in otros]
         m.rnd.shuffle(ops)
-        dato = dato_fuente(c.get("Fuente")) or dato_vida(a)
+        dato = dato_fuente(c.get("Fuente"), a) or dato_vida(a)
         return {**base, "cita": c["Cita"].strip(), "opciones": ops, "correcta": [o["nombre"] for o in ops].index(a["nombre"]),
                 "ficha": ficha(m, a, dato or a["nombre"])}
     if tipo == "vf":
@@ -365,7 +376,7 @@ def pregunta(m, tipo, nivel, a, autores):
             return None
         verdadero = m.rnd.random() < 0.5
         if verdadero:
-            prop, dato = a, dato_fuente(c.get("Fuente")) or dato_vida(a)
+            prop, dato = a, dato_fuente(c.get("Fuente"), a) or dato_vida(a)
         else:
             otros = parecidos(m, a, autores, 1)
             if not otros:
@@ -385,7 +396,7 @@ def pregunta(m, tipo, nivel, a, autores):
                 continue
             ops = [palabra] + falsas
             m.rnd.shuffle(ops)
-            dato = dato_fuente(c.get("Fuente")) or dato_vida(a)
+            dato = dato_fuente(c.get("Fuente"), a) or dato_vida(a)
             return {**base, "antes": antes, "opciones": ops, "correcta": ops.index(palabra), "ficha": ficha(m, a, dato or a["nombre"])}
         return None
     if tipo == "pais":
@@ -412,8 +423,8 @@ def pregunta(m, tipo, nivel, a, autores):
             return None
         s = siglo_de((a["nace"] + a["muere"]) // 2)
         vividos = set(range(siglo_de(a["nace"]), siglo_de(a["muere"]) + 1))
-        cerca = [x for x in (s - 2, s + 2) if x not in vividos and 1 <= x <= 21]
-        lejos = [x for x in (s - 3, s + 3) if x not in vividos and 1 <= x <= 21]
+        cerca = [x for x in (s - 2, s + 2) if x not in vividos and 1 <= x <= 20]
+        lejos = [x for x in (s - 3, s + 3) if x not in vividos and 1 <= x <= 20]
         m.rnd.shuffle(cerca)
         m.rnd.shuffle(lejos)
         falsos = cerca + lejos
@@ -429,7 +440,7 @@ def pregunta(m, tipo, nivel, a, autores):
             return None
         s = siglo_de((a["nace"] + a["muere"]) // 2)
         c = cita_corta(m, a, 110)
-        dato = (c and dato_fuente(c.get("Fuente"))) or dato_vida(a)
+        dato = (c and dato_fuente(c.get("Fuente"), a)) or dato_vida(a)
         return {**base, "pistas": [{"icono": "🕰️", "texto": f"Siglo {romano(s)}"}, {"icono": "📍", "texto": a["pais"]["nombre"]},
                                    {"icono": "✒️", "texto": prof}],
                 "recorte": None, "proporcion": 1.3, "ficha": ficha(m, a, dato or a["nombre"])}
