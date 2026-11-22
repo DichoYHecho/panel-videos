@@ -245,14 +245,22 @@ def sintetizar_quiz(trozos, grupos, carpeta, voz="m"):
     (gancho, cita, opciones, autor). Un solo audio de Gemini (prosodia natural) que se corta en las pausas
     entre partes. Guarda <carpeta>/{gancho,cita,opciones,autor}.wav y devuelve, por parte, su duración y el
     segundo (dentro de su archivo) de cada token. Lanza SinVoz si no hay voz."""
+    return sintetizar_partes(trozos, grupos, ("gancho", "cita", "opciones", "autor"), carpeta,
+                             VOCES_QUIZ[voz], ESTILO_QUIZ, "quiz")
+
+
+def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, prefijo):
+    """Un audio de Gemini con todos los trozos, cortado en partes (`grupos` = nº de trozos de cada parte) por
+    las pausas. Guarda <carpeta>/<nombre>.wav por parte y devuelve {nombre: {dur, tokens, trozos}}, con
+    `trozos` = (inicio, fin) de cada trozo dentro de su parte. Lanza SinVoz si no hay voz."""
     limpios = [texto_voz(t) for t in trozos]
     texto = " ".join(t if re.search(r"[.,;:?!…]$", t) else t + "." for t in limpios)
-    clave = hashlib.sha1(f"quiz|{VOCES_QUIZ[voz]}|{ESTILO_QUIZ}|{texto}".encode()).hexdigest()[:20]
+    clave = hashlib.sha1(f"{prefijo}|{voz_nombre}|{estilo}|{texto}".encode()).hexdigest()[:20]
     ruta_cache = os.path.join(CACHE, f"{clave}.wav")
     if os.path.exists(ruta_cache):
         datos, modelo = open(ruta_cache, "rb").read(), "caché"
     else:
-        datos, modelo = gemini(VOCES_QUIZ[voz], texto, estilo=ESTILO_QUIZ, solo_principal=True)
+        datos, modelo = gemini(voz_nombre, texto, estilo=estilo, solo_principal=True)
         os.makedirs(CACHE, exist_ok=True)
         open(ruta_cache, "wb").write(datos)
     x, sr = sf.read(io.BytesIO(datos), dtype="float32")
@@ -281,7 +289,7 @@ def sintetizar_quiz(trozos, grupos, carpeta, voz="m"):
         cortes.append(max(fa + 0.25, (fa + 0.25 + ib) / 2) if ib > fa + 0.25 else ib - 0.02)
     cortes.append(len(x) / SR)
     res = {}
-    for nombre, p, a, b in zip(("gancho", "cita", "opciones", "autor"), partes, cortes, cortes[1:]):
+    for nombre, p, a, b in zip(nombres, partes, cortes, cortes[1:]):
         trozo = x[int(a * SR):int(b * SR)].copy()
         f = int(0.015 * SR)  # microfundidos para que el corte no haga clic
         if len(trozo) > 2 * f:
@@ -290,8 +298,10 @@ def sintetizar_quiz(trozos, grupos, carpeta, voz="m"):
         if np.sqrt(np.mean(trozo ** 2)) < 0.005:
             raise RuntimeError(f"el trozo «{nombre}» ha quedado en silencio")
         sf.write(os.path.join(carpeta, f"{nombre}.wav"), trozo, SR, subtype="PCM_16")
-        res[nombre] = {"dur": round(b - a, 3), "tokens": [round(t - a, 3) for i in p for t in por_trozo[i]]}
-    ULTIMO.update(modelo=modelo, metodo="Whisper medium", voz=VOCES_QUIZ[voz])
+        res[nombre] = {"dur": round(b - a, 3), "tokens": [round(t - a, 3) for i in p for t in por_trozo[i]],
+                       "trozos": [(round(max(por_trozo[i][0] - a, 0), 3) if por_trozo[i] else 0.0,
+                                   round(min(por_trozo[i][-1] - a + 0.35, b - a), 3) if por_trozo[i] else 0.0) for i in p]}
+    ULTIMO.update(modelo=modelo, metodo="Whisper medium", voz=voz_nombre)
     return res
 
 

@@ -7,7 +7,8 @@ Elige 20 preguntas del banco verificado (tabla Citas) repartidas en 4 niveles (5
 - Todo lo que se afirma sale de la tabla Citas y de Wikidata. Las opciones falsas son autores REALES del banco.
   En «Completa la frase», las dos palabras falsas las propone Gemini texto (nivel gratuito); si no contesta,
   esa pregunta se cambia por otra de otro tipo.
-- Sin voz por ahora (no gasta cupo de la voz de Gemini).
+- Narración (23 nov 2026): una voz lee cada pregunta y cuenta la respuesta; gasta 5 audios del cupo de la
+  voz de Gemini (los guarda en cache/voces: repetir el montaje con las mismas preguntas no gasta más).
 Ajustes en .github/quiz_largo.txt (cambiarlo y subirlo lanza el montaje). Coste: 0 €."""
 import json, os, random, re, shutil, subprocess, sys, tempfile, urllib.parse
 
@@ -121,6 +122,9 @@ def dato_fuente(fuente, a):
     El año solo se pone si cae dentro de su vida (la Fuente puede llevar números de verso o de página)."""
     fuente = fuente or ""
     m = re.search(r"«([^«»]{3,40})»", fuente)  # si la Fuente trae un título entre comillas, ese es la obra
+    delante = fuente[:m.start()].strip().rstrip(",;:").strip() if m else ""
+    if m and delante and len(delante) <= 34 and a["nombre"].lower() not in delante.lower():
+        m = None  # «Fausto, «Gabinete de estudio»»: lo de delante es la obra y lo de las comillas, una parte
     et = m.group(1).strip() if m else quiz.etiqueta_fuente(fuente)
     if not et or re.search(r"[«»\"“”]|t[íi]tulo|exclamaci|famos|atribu|citad|recogid", et, re.I):
         return None
@@ -184,6 +188,141 @@ def palabras_falsas(cita, palabra):
         except Exception:
             pass
     return None
+
+
+# ---------------------------------------------------------------- narración (23 nov 2026)
+# Una voz (Gemini «Enceladus», español neutro) que lee cada pregunta y cuenta la respuesta. 5 audios en total
+# (intro y final + uno por nivel), cortados por pregunta en las pausas; se guardan en cache/voces.
+VOZ_LARGO = "Enceladus"
+ESTILO_LARGO = ("A friendly quiz host talking to people at home, like a relaxed quiz night among friends. Neutral "
+                "Spanish (español neutro), with no strong regional accent, easy to understand in Mexico, Colombia, "
+                "Argentina, the United States and Spain. Warm, close to the microphone and unhurried, because many "
+                "listeners are older. Read each quote slowly, savouring it; say the options in a playful way; "
+                "reveal each answer with a hint of a smile, then tell the fact like a curious friend. "
+                "Never sounds like an advert or a radio announcer.")
+NIVEL_VOZ = ["Nivel uno: fácil. Empezamos con frases muy conocidas.",
+             "Nivel dos: medio. Ahora, un poco más difícil.",
+             "Nivel tres: difícil. Aquí se separan los que más saben.",
+             "Nivel cuatro: experto. Solo para sabios."]
+NUM_SIGLO = {1: "primero", 2: "segundo", 3: "tercero", 4: "cuarto", 5: "quinto", 6: "sexto", 7: "séptimo",
+             8: "octavo", 9: "noveno", 10: "décimo", 11: "once", 12: "doce", 13: "trece", 14: "catorce",
+             15: "quince", 16: "dieciséis", 17: "diecisiete", 18: "dieciocho", 19: "diecinueve", 20: "veinte",
+             21: "veintiuno"}
+# tiempos fijos de cada pregunta (s): la voz empieza en VOZ_A; reloj de 5 s; la respuesta, al revelar
+VOZ_A, RELOJ, VOZ_B = 0.6, 5.0, 0.25
+
+
+def de_romano(r):
+    vals = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
+    n = 0
+    for k, c in enumerate(r):
+        v = vals[c]
+        n += -v if k + 1 < len(r) and vals[r[k + 1]] > v else v
+    return n
+
+
+def siglo_voz(rotulo):
+    """«s. XIX» / «Siglo XIX» → «diecinueve»."""
+    return NUM_SIGLO[de_romano(rotulo.split()[-1])]
+
+
+def o_lista(xs):
+    return ", ".join(xs[:-1]) + " o " + xs[-1]
+
+
+def con_quien(a):
+    """«Francisco de Goya, pintor y grabador» (sin profesión si Wikidata no la da)."""
+    p = profesion(a.get("desc"))
+    return f"{a['nombre']}, {p[0].lower() + p[1:]}" if p else a["nombre"]
+
+
+def guion(n, p, a):
+    """Trozos que lee la voz: (planteamiento, respuesta). El índice de cada trozo se usa para sincronizar:
+    planteamiento = [enunciado, cita?, opciones] o, en «pistas», [enunciado, pista1, pista2, pista3]."""
+    t, dato = p["tipo"], p["ficha"]["dato"]
+    # en «país» y «siglo» la respuesta no dice el nombre: el dato lo lleva («Carl Sagan vivió entre…»)
+    dato_dicho = (f"{a['nombre']} n{dato[1:]}" if dato.startswith("Nació") else
+                  f"{a['nombre']} v{dato[1:]}" if dato.startswith("Vivió") else dato) if t in ("pais", "siglo") else dato
+    if t == "quien":
+        return ([f"Pregunta {n}. ¿Quién dijo esta frase?", f"«{p['cita']}»", f"¿{o_lista([o['nombre'] for o in p['opciones']])}?"],
+                [f"Lo dijo {con_quien(a)}.", dato_dicho])
+    if t == "completa":
+        return ([f"Pregunta {n}. Completa la frase.", f"«{p['antes']}…»", f"¿{o_lista(p['opciones'])}?"],
+                [f"La palabra que falta es «{p['opciones'][p['correcta']]}».", f"Lo dijo {con_quien(a)}. {dato_dicho}"])
+    if t == "vf":
+        if p["verdadero"]:
+            b = ["¡Verdadero!", f"Es de {con_quien(a)}. {dato_dicho}"]
+        else:
+            b = ["¡Falso!", f"No es de {p['propuesto']['nombre']}, sino de {con_quien(a)}."]
+        return [f"Pregunta {n}. ¿Verdadero o falso?", f"«{p['cita']}»", f"¿Es de {p['propuesto']['nombre']}?"], b
+    if t == "pais":
+        pa = p["paises"][p["correcta"]]["nombre"]
+        return ([f"Pregunta {n}. ¿De qué país era {a['nombre']}?", f"¿{o_lista([x['nombre'] for x in p['paises']])}?"],
+                [f"{pa}.", dato_dicho])
+    if t == "siglo":
+        ws = [siglo_voz(o["rotulo"]) for o in p["opciones"]]
+        return ([f"Pregunta {n}. ¿En qué siglo vivió {a['nombre']}?", f"¿En el siglo {ws[0]}, en el {ws[1]} o en el {ws[2]}?"],
+                [f"En el siglo {ws[p['correcta']]}.", dato_dicho])
+    # pistas
+    s, pais, prof = (x["texto"] for x in p["pistas"])
+    de = {"Reino Unido": "del Reino Unido", "Estados Unidos": "de Estados Unidos", "Países Bajos": "de los Países Bajos"}.get(pais, f"de {pais}")
+    return ([f"Pregunta {n}. ¿Quién es? Te doy tres pistas.", f"Vivió en el siglo {siglo_voz(s)}.", f"Era {de}.", f"{prof}."],
+            [f"Es {a['nombre']}.", dato_dicho])
+
+
+def tiempos_pregunta(p, va, vb):
+    """Momentos (s) de cada fase de la pregunta según lo que dura la voz."""
+    tr = va["trozos"]
+    T = {"pregunta": 0.4, "vozA": VOZ_A}
+    if p["tipo"] == "pistas":
+        T["pistas"] = [round(VOZ_A + x[0], 3) for x in tr[1:4]]
+        T["opciones"] = T["pistas"][-1]
+    else:
+        T["opciones"] = round(VOZ_A + tr[-1][0], 3)
+        if len(tr) == 3:
+            T["cita"] = [round(VOZ_A + tr[1][0], 3), round(VOZ_A + tr[1][1], 3)]
+    T["reloj"] = round(VOZ_A + va["dur"] + 0.4, 3)
+    T["rev"] = round(T["reloj"] + RELOJ, 3)
+    T["vozB"] = round(T["rev"] + VOZ_B, 3)
+    T["dato"] = round(max(T["rev"] + 1.0, T["vozB"] + vb["trozos"][0][1] + 0.15), 3)
+    T["fin"] = round(max(T["vozB"] + vb["dur"] + 1.2, T["dato"] + 3.0), 3)
+    return T
+
+
+def narrar(preguntas, total):
+    """Genera las voces en public/largo/voz y devuelve (voces, duraciones) para los props.
+    Añade a cada pregunta sus tiempos (`T`) y sus audios (`voz`). Lanza tts.SinVoz si no hay voz."""
+    carpeta = os.path.join(PUB, "voz")
+    os.makedirs(carpeta, exist_ok=True)
+    rel = lambda nombre: f"largo/voz/{nombre}.wav"
+    # intro y final, en un solo audio
+    r = tts.sintetizar_partes(
+        ["¿Quién lo dijo?", f"{total} frases célebres en cuatro niveles, de fácil a experto.",
+         "Tienes cinco segundos para cada respuesta. Cuenta tus aciertos y, al final, descubre tu nivel.",
+         "¿Cuántas acertaste?", f"Si has acertado {total - 2} o más, eres todo un sabio.",
+         "Escribe tu resultado en los comentarios, y suscríbete para no perderte el próximo quiz."],
+        [3, 3], ["intro", "final"], carpeta, VOZ_LARGO, ESTILO_LARGO, "largo")
+    voces = {"intro": rel("intro"), "final": rel("final"), "niveles": []}
+    dur = {"intro": round(max(6.0, 0.5 + r["intro"]["dur"] + 1.2), 3), "final": round(max(9.0, r["final"]["dur"] + 4.5), 3),
+           "cortinilla": []}
+    for nivel in range(4):
+        qs = [(k, p) for k, p in enumerate(preguntas) if p["nivel"] == nivel]
+        if not qs:
+            continue
+        trozos, grupos, nombres = [NIVEL_VOZ[nivel]], [1], [f"nivel{nivel}"]
+        for k, p in qs:
+            a_txt, b_txt = guion(k + 1, p, p["_autor"])
+            trozos += a_txt + b_txt
+            grupos += [len(a_txt), len(b_txt)]
+            nombres += [f"p{k}a", f"p{k}b"]
+        r = tts.sintetizar_partes(trozos, grupos, nombres, carpeta, VOZ_LARGO, ESTILO_LARGO, "largo")
+        voces["niveles"].append(rel(f"nivel{nivel}"))
+        dur["cortinilla"].append(round(max(2.6, 0.3 + r[f"nivel{nivel}"]["dur"] + 0.9), 3))
+        for k, p in qs:
+            p["T"] = tiempos_pregunta(p, r[f"p{k}a"], r[f"p{k}b"])
+            p["voz"] = {"a": rel(f"p{k}a"), "b": rel(f"p{k}b")}
+        print(f"[voz] nivel {nivel + 1}: {sum(r[x]['dur'] for x in nombres):.0f} s de voz ({tts.ULTIMO.get('modelo')})", flush=True)
+    return voces, dur
 
 
 # ---------------------------------------------------------------- preparación
@@ -277,15 +416,21 @@ def main():
                 if hecha:
                     break
             if hecha:
+                hecha["_autor"] = a  # para la narración (se quita antes de montar)
                 preguntas.append(hecha)
                 print(f"[ok] nivel {nivel + 1} · {hecha['tipo']} · {hecha['ficha']['autor']}", flush=True)
             else:
                 print(f"[falta] nivel {nivel + 1} · {tipo}: ningún autor sirve", flush=True)
 
-    # música variada (creada con código): intro, un estilo por nivel y final
+    # narración: sin voz de Gemini no se monta (se repite otro día; lo ya hecho queda en cache/voces)
+    voces, duraciones = narrar(preguntas, len(preguntas))
+    for p in preguntas:
+        p.pop("_autor", None)
+
+    # música variada (creada con código): intro, un estilo por nivel y final, del largo de cada tramo
     os.makedirs(os.path.join(PUB, "musica"), exist_ok=True)
-    tramo = 2.6 + por_nivel * 13 + 1
-    estilos = [("intro", 7), ("facil", tramo), ("medio", tramo), ("dificil", tramo), ("experto", tramo), ("final", 10)]
+    tramos = [duraciones["cortinilla"][n] + sum(p["T"]["fin"] for p in preguntas if p["nivel"] == n) + 1 for n in range(4)]
+    estilos = [("intro", duraciones["intro"] + 1)] + list(zip(("facil", "medio", "dificil", "experto"), tramos)) + [("final", duraciones["final"] + 1)]
     for k, (est, seg) in enumerate(estilos):
         subprocess.run([sys.executable, os.path.join(quiz.AQUI, "musica_variada.py"), est, f"{seg:.1f}",
                         os.path.join(PUB, "musica", f"{est}.wav"), str(k + 7)], check=True, stdout=subprocess.DEVNULL)
@@ -300,6 +445,8 @@ def main():
         "preguntas": preguntas,
         "musica": {"intro": "largo/musica/intro.wav", "niveles": [f"largo/musica/{e}.wav" for e in ("facil", "medio", "dificil", "experto")],
                    "final": "largo/musica/final.wav"},
+        "voces": voces,
+        "duraciones": duraciones,
     }
     with tempfile.TemporaryDirectory() as tmp:
         ruta_props = os.path.join(tmp, "props.json")

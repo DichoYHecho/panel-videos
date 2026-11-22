@@ -16,7 +16,7 @@ permissions:
 jobs:
   largo:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -48,6 +48,19 @@ jobs:
           npm ci --no-audit --no-fund
           npx remotion browser ensure
 
+      - name: Caché del modelo de Whisper «medium» (tiempos de cada palabra de la voz)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-medium-v1
+
+      - name: Recuperar las voces ya hechas
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}
+          restore-keys: voces-
+
       - name: Montar el vídeo largo (solo lee Airtable)
         run: python videos/quiz_largo.py
 
@@ -57,3 +70,10 @@ jobs:
           name: quiz-largo
           path: salida_largo/
           retention-days: 3
+
+      - name: Guardar las voces (para no gastar cupo si se repite)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/voces
+          key: voces-${{ github.run_id }}

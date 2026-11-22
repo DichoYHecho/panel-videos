@@ -22,13 +22,15 @@ export const NIVELES = [
 	{nombre: 'Experto', color: '#FF375F'},
 ];
 const GRIS = '#a1a1a6';
-const T = {pregunta: 0.4, opciones: 2.2, reloj: 3.6, rev: 8.6, dato: 9.4, fin: 13};
+/** Momentos (s) de cada fase de una pregunta. Con narración los calcula quiz_largo.py según lo que dura la voz. */
+type Tiempos = {pregunta: number; opciones: number; reloj: number; rev: number; dato: number; fin: number; vozA?: number; vozB?: number; cita?: [number, number]; pistas?: number[]};
+const T_FIJO: Tiempos = {pregunta: 0.4, opciones: 2.2, reloj: 3.6, rev: 8.6, dato: 9.4, fin: 13};
 const INTRO = 6;
 const CORTINILLA = 2.6;
 const FINAL = 9;
 
 type Ficha = {autor: string; foto: string; foco: [number, number]; dato: string};
-export type Pregunta = {nivel: number; ficha: Ficha} & (
+export type Pregunta = {nivel: number; ficha: Ficha; T?: Tiempos; voz?: {a: string; b: string}} & (
 	| {tipo: 'quien'; cita: string; opciones: Opcion[]; correcta: number}
 	| {tipo: 'completa'; antes: string; opciones: string[]; correcta: number}
 	| {tipo: 'vf'; cita: string; propuesto: Opcion; verdadero: boolean}
@@ -42,7 +44,11 @@ export type DatosQuizLargo = {
 	total: number;
 	preguntas: Pregunta[];
 	musica: {intro: string; niveles: string[]; final: string};
+	/** narración (opcional): intro, frase de cada nivel y final */
+	voces?: {intro: string; niveles: string[]; final: string};
+	duraciones?: {intro: number; cortinilla: number[]; final: number};
 };
+const tiemposDe = (p: Pregunta): Tiempos => p.T ?? T_FIJO;
 
 const ROTULO_TIPO: Record<Pregunta['tipo'], string> = {
 	quien: '¿Quién lo dijo?',
@@ -55,24 +61,28 @@ const ROTULO_TIPO: Record<Pregunta['tipo'], string> = {
 
 /** Línea de tiempo del vídeo: intro, cortinilla al empezar cada nivel, preguntas, final. */
 const plan = (d: DatosQuizLargo) => {
-	const pasos: {tipo: 'intro' | 'nivel' | 'pregunta' | 'final'; desde: number; dur: number; i?: number}[] = [{tipo: 'intro', desde: 0, dur: INTRO}];
+	const intro = d.duraciones?.intro ?? INTRO;
+	const fin = d.duraciones?.final ?? FINAL;
+	const pasos: {tipo: 'intro' | 'nivel' | 'pregunta' | 'final'; desde: number; dur: number; i?: number}[] = [{tipo: 'intro', desde: 0, dur: intro}];
 	const tramos: {nivel: number; desde: number; hasta: number}[] = [];
-	let t = INTRO;
+	let t = intro;
 	let nivel = -1;
 	d.preguntas.forEach((p, i) => {
 		if (p.nivel !== nivel) {
 			if (tramos.length) tramos[tramos.length - 1].hasta = t;
 			nivel = p.nivel;
 			tramos.push({nivel, desde: t, hasta: t});
-			pasos.push({tipo: 'nivel', desde: t, dur: CORTINILLA, i});
-			t += CORTINILLA;
+			const c = d.duraciones?.cortinilla[tramos.length - 1] ?? CORTINILLA;
+			pasos.push({tipo: 'nivel', desde: t, dur: c, i});
+			t += c;
 		}
-		pasos.push({tipo: 'pregunta', desde: t, dur: T.fin, i});
-		t += T.fin;
+		const f = tiemposDe(p).fin;
+		pasos.push({tipo: 'pregunta', desde: t, dur: f, i});
+		t += f;
 	});
 	if (tramos.length) tramos[tramos.length - 1].hasta = t;
-	pasos.push({tipo: 'final', desde: t, dur: FINAL});
-	return {pasos, tramos, dur: t + FINAL};
+	pasos.push({tipo: 'final', desde: t, dur: fin});
+	return {pasos, tramos, dur: t + fin};
 };
 export const duracionQuizLargo = (d: DatosQuizLargo) => Math.round(plan(d).dur * FPS);
 
@@ -130,7 +140,7 @@ const Cabecera: React.FC<{nivel: number; actual: number; total: number; tipo: st
 };
 
 // ---------------------------------------------------------------- reloj de 5 s
-const Reloj: React.FC<{t: number; x: number; y: number; color: string}> = ({t, x, y, color}) => {
+const Reloj: React.FC<{t: number; x: number; y: number; color: string; T: Tiempos}> = ({t, x, y, color, T}) => {
 	const dur = T.rev - T.reloj;
 	const p = Math.min(Math.max((t - T.reloj) / dur, 0), 1);
 	const vis = rampa(t, T.reloj - 0.3, 0.3) * (1 - rampa(t, T.rev + 0.2, 0.3));
@@ -210,6 +220,7 @@ const Bandera: React.FC<{src?: string; alto: number}> = ({src, alto}) =>
 
 // ---------------------------------------------------------------- tipos de pregunta
 const Planteamiento: React.FC<{p: Pregunta; t: number; color: string}> = ({p, t, color}) => {
+	const T = tiemposDe(p);
 	const fuera = rampa(t, T.dato - 0.4, 0.4);
 	const st: React.CSSProperties = {position: 'absolute', inset: 0, opacity: 1 - fuera};
 	const titulo = (txt: React.ReactNode, top = 170) => (
@@ -221,7 +232,7 @@ const Planteamiento: React.FC<{p: Pregunta; t: number; color: string}> = ({p, t,
 		return (
 			<div style={st}>
 				<div style={{position: 'absolute', top: largo ? 140 : 165, left: 160, right: 160, display: 'flex', justifyContent: 'center'}}>
-					<CitaPluma cita={p.cita} tiempos={tiemposCita(p.cita, T.pregunta, T.opciones)} finVoz={T.opciones} t={t} tam={largo ? 60 : 84} ancho={1600} apagar={0} />
+					<CitaPluma cita={p.cita} tiempos={tiemposCita(p.cita, T.cita?.[0] ?? T.pregunta, T.cita?.[1] ?? T.opciones)} finVoz={T.cita?.[1] ?? T.opciones} t={t} tam={largo ? 60 : 84} ancho={1600} apagar={0} />
 				</div>
 				<div style={{position: 'absolute', inset: 0, transform: `scale(${largo ? 1.25 : 1.45})`, transformOrigin: `${W / 2}px ${largo ? 250 : 330}px`}}>
 					<Opciones opciones={p.opciones} correcta={p.correcta} entradas={[0, 1, 2].map((k) => T.opciones + k * 0.4)} t={t} rev={T.rev} salida={0} cx={W / 2} top={330} />
@@ -253,7 +264,7 @@ const Planteamiento: React.FC<{p: Pregunta; t: number; color: string}> = ({p, t,
 		return (
 			<div style={st}>
 				<div style={{position: 'absolute', top: 170, left: 160, right: 760, display: 'flex', alignItems: 'center', height: 420}}>
-					<CitaPluma cita={p.cita} tiempos={tiemposCita(p.cita, T.pregunta, T.opciones - 0.4)} finVoz={T.opciones} t={t} tam={78} ancho={1000} apagar={0} />
+					<CitaPluma cita={p.cita} tiempos={tiemposCita(p.cita, T.cita?.[0] ?? T.pregunta, T.cita?.[1] ?? T.opciones - 0.4)} finVoz={T.cita?.[1] ?? T.opciones} t={t} tam={78} ancho={1000} apagar={0} />
 				</div>
 				<div style={{position: 'absolute', top: 160, right: 180, width: 420, textAlign: 'center', opacity: rampa(t, T.opciones - 0.4, 0.4)}}>
 					<div style={{fontFamily: INTER, fontWeight: 700, fontSize: 36, color: GRIS, marginBottom: 14}}>¿Es de…?</div>
@@ -367,7 +378,7 @@ const Planteamiento: React.FC<{p: Pregunta; t: number; color: string}> = ({p, t,
 			<div style={{position: 'absolute', left: 800, right: 160, top: 200}}>
 				<div style={{...titular, fontSize: 56, marginBottom: 34, opacity: rampa(t, T.pregunta, 0.4)}}>¿Quién es? Tres pistas</div>
 				{p.pistas.map((pi, k) => {
-					const e = pop(t, T.pregunta + 0.6 + k * 1.0, 0.45);
+					const e = pop(t, T.pistas?.[k] ?? T.pregunta + 0.6 + k * 1.0, 0.45);
 					return (
 						<div key={k} style={{...cristal, display: 'flex', alignItems: 'center', gap: 26, marginBottom: 24, padding: '22px 32px', borderRadius: 32, opacity: Math.min(e * 1.4, 1), transform: `translateX(${(1 - e) * 80}px)`}}>
 							<div style={{fontSize: 56}}>{pi.icono}</div>
@@ -383,6 +394,7 @@ const Planteamiento: React.FC<{p: Pregunta; t: number; color: string}> = ({p, t,
 
 const BloquePregunta: React.FC<{p: Pregunta; i: number; total: number}> = ({p, i, total}) => {
 	const t = useCurrentFrame() / FPS;
+	const T = tiemposDe(p);
 	const color = NIVELES[p.nivel].color;
 	const tinta = Math.max(1 - rampa(t, 0, 0.5), rampa(t, T.fin - 0.5, 0.5));
 	const extra =
@@ -398,7 +410,7 @@ const BloquePregunta: React.FC<{p: Pregunta; i: number; total: number}> = ({p, i
 		<AbsoluteFill>
 			<Cabecera nivel={p.nivel} actual={i} total={total} tipo={ROTULO_TIPO[p.tipo]} t={t} resuelta={t > T.rev} />
 			<Planteamiento p={p} t={t} color={color} />
-			<Reloj t={t} x={W - 150} y={H - 150} color={color} />
+			<Reloj t={t} x={W - 150} y={H - 150} color={color} T={T} />
 			<Revelacion f={p.ficha} t={t} t0={T.dato} color={color} extra={extra} />
 			{/* transición: fundido a negro con un leve zoom */}
 			{tinta > 0.001 && <AbsoluteFill style={{background: '#000', opacity: tinta}} />}
@@ -413,14 +425,25 @@ const BloquePregunta: React.FC<{p: Pregunta; i: number; total: number}> = ({p, i
 			<Sequence from={Math.round((T.fin - 0.5) * FPS)} durationInFrames={30}>
 				<Audio src={staticFile('sfx/whoosh.wav')} volume={0.3} />
 			</Sequence>
+			{/* narración: el planteamiento al empezar y la respuesta al revelar */}
+			{p.voz && (
+				<>
+					<Sequence from={Math.round((T.vozA ?? T.pregunta) * FPS)}>
+						<Audio src={staticFile(p.voz.a)} />
+					</Sequence>
+					<Sequence from={Math.round((T.vozB ?? T.rev) * FPS)}>
+						<Audio src={staticFile(p.voz.b)} />
+					</Sequence>
+				</>
+			)}
 		</AbsoluteFill>
 	);
 };
 
 // ---------------------------------------------------------------- intro, cortinilla de nivel y final
-const Intro: React.FC<{d: DatosQuizLargo}> = ({d}) => {
+const Intro: React.FC<{d: DatosQuizLargo; dur: number}> = ({d, dur}) => {
 	const t = useCurrentFrame() / FPS;
-	const sale = rampa(t, INTRO - 0.6, 0.6);
+	const sale = rampa(t, dur - 0.6, 0.6);
 	return (
 		<AbsoluteFill style={{opacity: 1 - sale, transform: `scale(${1 + 0.03 * sale})`}}>
 			<div style={{position: 'absolute', top: 140, left: 0, right: 0, display: 'flex', justifyContent: 'center'}}>
@@ -448,11 +471,11 @@ const Intro: React.FC<{d: DatosQuizLargo}> = ({d}) => {
 	);
 };
 
-const Cortinilla: React.FC<{nivel: number}> = ({nivel}) => {
+const Cortinilla: React.FC<{nivel: number; dur: number}> = ({nivel, dur}) => {
 	const t = useCurrentFrame() / FPS;
 	const n = NIVELES[nivel];
 	const e = rampa(t, 0.15, 0.6);
-	const sale = rampa(t, CORTINILLA - 0.5, 0.5);
+	const sale = rampa(t, dur - 0.5, 0.5);
 	return (
 		<AbsoluteFill style={{opacity: 1 - sale}}>
 			<AbsoluteFill style={{background: '#000', opacity: Math.min(t / 0.3, 1)}} />
@@ -465,7 +488,7 @@ const Cortinilla: React.FC<{nivel: number}> = ({nivel}) => {
 	);
 };
 
-const Final: React.FC<{total: number}> = ({total}) => {
+const Final: React.FC<{total: number; dur: number}> = ({total, dur: FINAL}) => {
 	const t = useCurrentFrame() / FPS;
 	const escala = [
 		{r: `0–${Math.round(total / 4)}`, t: 'Aprendiz'},
@@ -499,9 +522,9 @@ const Final: React.FC<{total: number}> = ({total}) => {
 };
 
 /** Música de un tramo, con fundido de entrada y de salida para encadenar con el siguiente. */
-const Pista: React.FC<{src: string; dur: number}> = ({src, dur}) => {
+const Pista: React.FC<{src: string; dur: number; vol: number}> = ({src, dur, vol}) => {
 	const f = Math.round(dur * FPS);
-	return <Audio src={staticFile(src)} volume={(fr) => 0.16 * interpolate(fr, [0, 15, f - 20, f], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})} />;
+	return <Audio src={staticFile(src)} volume={(fr) => vol * interpolate(fr, [0, 15, f - 20, f], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})} />;
 };
 
 export const QuizLargo: React.FC<DatosQuizLargo> = (d) => {
@@ -511,29 +534,48 @@ export const QuizLargo: React.FC<DatosQuizLargo> = (d) => {
 	const actual = pasos.find((p) => t >= p.desde && t < p.desde + p.dur);
 	const nivelActual = actual && (actual.tipo === 'pregunta' || actual.tipo === 'nivel') ? d.preguntas[actual.i ?? 0].nivel : -1;
 	const final = pasos[pasos.length - 1];
+	const intro = pasos[0];
+	// con narración, la música baja para que la voz se entienda bien
+	const vol = d.voces ? 0.09 : 0.16;
 	return (
 		<AbsoluteFill style={{background: '#000'}}>
 			<Fondo t={t} color={nivelActual >= 0 ? NIVELES[nivelActual].color : '#BF5AF2'} />
 			{pasos.map((p, k) => (
 				<Sequence key={k} from={Math.round(p.desde * FPS)} durationInFrames={Math.round(p.dur * FPS)}>
-					{p.tipo === 'intro' && <Intro d={d} />}
-					{p.tipo === 'nivel' && <Cortinilla nivel={d.preguntas[p.i ?? 0].nivel} />}
+					{p.tipo === 'intro' && <Intro d={d} dur={p.dur} />}
+					{p.tipo === 'nivel' && <Cortinilla nivel={d.preguntas[p.i ?? 0].nivel} dur={p.dur} />}
 					{p.tipo === 'pregunta' && <BloquePregunta p={d.preguntas[p.i ?? 0]} i={p.i ?? 0} total={d.total} />}
-					{p.tipo === 'final' && <Final total={d.total} />}
+					{p.tipo === 'final' && <Final total={d.total} dur={p.dur} />}
 					{p.tipo === 'nivel' && <Audio src={staticFile('sfx/subida.wav')} volume={0.3} />}
+					{/* narración de la intro, de cada nivel y del final */}
+					{d.voces && p.tipo === 'intro' && (
+						<Sequence from={Math.round(0.5 * FPS)}>
+							<Audio src={staticFile(d.voces.intro)} />
+						</Sequence>
+					)}
+					{d.voces && p.tipo === 'nivel' && d.voces.niveles[d.preguntas[p.i ?? 0].nivel] && (
+						<Sequence from={Math.round(0.3 * FPS)}>
+							<Audio src={staticFile(d.voces.niveles[d.preguntas[p.i ?? 0].nivel])} />
+						</Sequence>
+					)}
+					{d.voces && p.tipo === 'final' && (
+						<Sequence from={Math.round(0.4 * FPS)}>
+							<Audio src={staticFile(d.voces.final)} />
+						</Sequence>
+					)}
 				</Sequence>
 			))}
 			{/* música variada: una pista por tramo */}
-			<Sequence from={0} durationInFrames={Math.round(INTRO * FPS)}>
-				<Pista src={d.musica.intro} dur={INTRO} />
+			<Sequence from={0} durationInFrames={Math.round(intro.dur * FPS)}>
+				<Pista src={d.musica.intro} dur={intro.dur} vol={vol} />
 			</Sequence>
 			{tramos.map((tr, k) => (
 				<Sequence key={`m${k}`} from={Math.round(tr.desde * FPS)} durationInFrames={Math.round((tr.hasta - tr.desde) * FPS)}>
-					<Pista src={d.musica.niveles[tr.nivel] ?? d.musica.niveles[0]} dur={tr.hasta - tr.desde} />
+					<Pista src={d.musica.niveles[tr.nivel] ?? d.musica.niveles[0]} dur={tr.hasta - tr.desde} vol={vol} />
 				</Sequence>
 			))}
-			<Sequence from={Math.round(final.desde * FPS)} durationInFrames={Math.round(FINAL * FPS)}>
-				<Pista src={d.musica.final} dur={FINAL} />
+			<Sequence from={Math.round(final.desde * FPS)} durationInFrames={Math.round(final.dur * FPS)}>
+				<Pista src={d.musica.final} dur={final.dur} vol={vol} />
 			</Sequence>
 		</AbsoluteFill>
 	);
