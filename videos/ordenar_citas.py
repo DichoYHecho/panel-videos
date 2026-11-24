@@ -20,8 +20,8 @@ UA = {"User-Agent": "DichoYHechoBot/1.1 (dichoyhecho66@gmail.com) GitHubActions"
 LATAM = {"Q96", "Q414", "Q739", "Q298", "Q419", "Q241", "Q77", "Q717", "Q811", "Q774", "Q736", "Q750", "Q733",
          "Q786", "Q1183", "Q800", "Q783", "Q792", "Q804", "Q155"}  # … y Brasil (Q155)
 ESPANA = {"Q29"}
-TEMAS_BUENOS = re.compile(r"\b(dios|fe|alma|esperanza|or(a|ación)|cielo|consuel|perd[oó]n|bondad|paz|gracia|"
-                          r"señor|amor|coraz[oó]n|sabidur|sabio|virtud|paciencia|humild|gratitud|agradec)", re.I)
+TEMAS_BUENOS = re.compile(r"\b(dios|fe|alma|almas|esperanza|oraci[oó]n|rezar|cielo|consuelo|consolar|perd[oó]n|perdonar|"
+                          r"bondad|gracia|sabidur[ií]a|sabio|sabia|virtud|paciencia|humildad|gratitud|agradecer)\b", re.I)
 
 
 def airtable(metodo, ruta, datos=None):
@@ -93,7 +93,7 @@ def efemeride(w, hoy):
     for tipo, f in (("nació", w.get("nace")), ("murió", w.get("muere"))):
         if not f or f[0] < 1:
             continue
-        for k in range(DIAS + 1):
+        for k in range(1, DIAS + 2):  # el lote sale desde el día siguiente (Make: 02:00; publicaciones 20:00 y 02:00)
             dia = hoy + dt.timedelta(days=k)
             if (dia.month, dia.day) == (f[1], f[2]):
                 n = dia.year - f[0]
