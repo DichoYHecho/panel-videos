@@ -5,7 +5,9 @@ name: Ordenar citas (antes de que Make genere el lote)
 # domingos y miércoles a las 02:00 de Madrid cogiendo las primeras por «Orden».
 on:
   schedule:
-    - cron: "0 23 * * 2,6"   # miércoles y domingo a las 00:00 de Madrid en invierno (2 h antes del lote)
+    # Martes y sábado a las 13:00 de Madrid: GitHub arranca los cron con 6-11 h de retraso (medido el 24 nov
+    # 2026), así que se lanza con margen para que acabe antes del lote de las 02:00.
+    - cron: "0 12 * * 2,6"
   workflow_dispatch:
     inputs:
       solo_mirar:
