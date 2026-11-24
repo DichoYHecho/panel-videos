@@ -18,7 +18,7 @@ Variables: DIAS (cuántos días mirar en Buffer, 4 por defecto) y SOLO_MIRAR=1 (
 """
 import json, os, re, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
-from comprobar import CANAL, DIAS, MADRID, T_PUB, airtable, clase, letras, norm, posts_buffer
+from comprobar import CANAL, DIAS, MADRID, T_PUB, airtable, clase, leer_todas, letras, norm, posts_buffer
 
 CAMPO = "Comentario YouTube"
 SOLO_MIRAR = os.environ.get("SOLO_MIRAR") == "1"
@@ -30,14 +30,7 @@ def por_comentar():
                f"OR({{{CAMPO}}}='', FIND('⚠', {{{CAMPO}}})))")
     params = [("pageSize", "100"), ("filterByFormula", formula)] + \
              [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO, "YouTube")]
-    out, offset = [], None
-    while True:
-        q = urllib.parse.urlencode(params + ([("offset", offset)] if offset else []))
-        d = airtable("GET", f"{T_PUB}?{q}")
-        out += d["records"]
-        offset = d.get("offset")
-        if not offset:
-            return out
+    return leer_todas(params)
 
 
 def guardar(rec_id, texto):

@@ -30,24 +30,16 @@ CATEGORIA = "27"  # Educación
 
 
 def asegurar_campo():
-    """Crea el campo «YouTube» (texto) en Publicaciones si aún no existe."""
-    meta = requests.get(f"https://api.airtable.com/v0/meta/bases/{BASE}/tables", timeout=60,
-                        headers={"Authorization": f"Bearer {os.environ['AIRTABLE_TOKEN']}"})
-    meta.raise_for_status()
-    tabla = next(t for t in meta.json()["tables"] if t["id"] == T_PUB)
-    if any(f["name"] == CAMPO for f in tabla["fields"]):
-        return
-    if SOLO_MIRAR:
-        print(f"(solo mirar) se crearía el campo «{CAMPO}»")
-        return
-    r = requests.post(f"https://api.airtable.com/v0/meta/bases/{BASE}/tables/{T_PUB}/fields", timeout=60,
-                      headers={"Authorization": f"Bearer {os.environ['AIRTABLE_TOKEN']}"},
-                      json={"name": CAMPO, "type": "singleLineText",
-                            "description": "Short subido a YouTube por la API (subir_youtube.py): enlace y hora de salida"})
-    if r.status_code >= 400:
-        raise SystemExit(f"No puedo crear el campo «{CAMPO}» en Airtable ({r.status_code}: {r.text[:200]}). "
-                         "Créalo a mano en Publicaciones (texto de una línea) y se vuelve a intentar sola.")
-    print(f"Creado el campo «{CAMPO}» en Publicaciones")
+    """El campo «YouTube» (texto de una línea) tiene que existir en Publicaciones: el token no puede crearlo.
+    Sin él no se sube nada (sin dónde apuntarlo, se podría subir dos veces)."""
+    r = requests.get(f"https://api.airtable.com/v0/{BASE}/{T_PUB}", timeout=60,
+                     headers={"Authorization": f"Bearer {os.environ['AIRTABLE_TOKEN']}"},
+                     params={"maxRecords": 1, "fields[]": CAMPO})
+    if r.status_code == 422:
+        print(f"Falta el campo «{CAMPO}» en Publicaciones (texto de una línea): créalo en Airtable y esto "
+              "empezará a funcionar solo en la siguiente hora. Hasta entonces no se sube nada.")
+        raise SystemExit(0)
+    r.raise_for_status()
 
 
 def publicaciones():

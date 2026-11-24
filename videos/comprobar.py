@@ -9,7 +9,7 @@ escribe una línea en el campo «Comprobación»:
   ⏳ 19/10 17:01 · Aún enviándose: YouTube        (se vuelve a mirar en la siguiente ejecución)
 El campo «Avisos» enseña las «⚠️» en la tarjeta de la publicación. También deja un resumen en GitHub.
 Sin avisos al móvil (decisión del 10 de octubre): la señal se queda en Airtable."""
-import json, os, re, unicodedata, urllib.parse, urllib.request
+import json, os, re, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -38,10 +38,20 @@ def por_comprobar():
     formula = f"AND({{Estado}}='Publicado', OR({{{CAMPO}}}='', FIND('⏳', {{{CAMPO}}}), FIND('⚠', {{{CAMPO}}})))"
     params = [("pageSize", "100"), ("filterByFormula", formula), ("fields[]", "Frase"), ("fields[]", "Autor"),
               ("fields[]", "Caption"), ("fields[]", "Vídeo"), ("fields[]", CAMPO), ("fields[]", "YouTube")]
+    return leer_todas(params)
+
+
+def leer_todas(params):
+    """Todas las filas; si el campo «YouTube» aún no existe en Airtable (24 nov 2026), se lee sin él."""
     out, offset = [], None
     while True:
         q = urllib.parse.urlencode(params + ([("offset", offset)] if offset else []))
-        d = airtable("GET", f"{T_PUB}?{q}")
+        try:
+            d = airtable("GET", f"{T_PUB}?{q}")
+        except urllib.error.HTTPError as e:
+            if e.code == 422 and ("fields[]", "YouTube") in params:
+                return leer_todas([x for x in params if x != ("fields[]", "YouTube")])
+            raise
         out += d["records"]
         offset = d.get("offset")
         if not offset:
