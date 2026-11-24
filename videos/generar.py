@@ -115,7 +115,8 @@ def caption_quiz(frase, nombres, creditos, fuente):
         c = html.unescape(c or "")
         return re.sub(r"\bUnknown( author)?\b", "autor desconocido", re.sub(r"Public domain", "dominio público", c, flags=re.I))
     fotos = "; ".join(f"{n}: {limpio(creditos.get(n, ''))}" for n in nombres)
-    tags = ["#frases", "#frasescelebres", "#culturageneral", "#quiz"] + [etiqueta(n) for n in nombres] + ["#reflexiones"]
+    # máximo 5 (el aviso «Más de 5 hashtags» de Airtable): los 3 autores (lo que la gente busca) y 2 del formato
+    tags = ["#quiz", "#frasescelebres"] + [etiqueta(n) for n in nombres]
     return (f"¿{nombres[0]}, {nombres[1]} o {nombres[2]}? Escribe tu respuesta en los comentarios 👇\n"
             "La solución, al final del vídeo.\n\n"
             f"«{frase}»\n\n"
