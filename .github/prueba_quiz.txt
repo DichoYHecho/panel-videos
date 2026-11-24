@@ -1,6 +1,0 @@
-# Prueba del formato quiz: cambiar este archivo y subirlo a la rama formato-quiz lanza la prueba.
-# Solo lee Airtable (no escribe nada). Cada vídeo gasta 1 audio del cupo gratis de Gemini.
-# 22 nov 2026: 2.ª tanda (la 1.ª se quedó sin cupo tras Simone de Beauvoir, que ya está en caché y no gasta).
-N=3
-# Opcional: autores concretos, separados por comas (si se deja vacío, las primeras N sin publicar)
-AUTORES=

@@ -1,9 +1,9 @@
 name: Airtable (cambio puntual)
 
-# Se lanza al cambiar .github/airtable_una_vez.txt en la rama formato-quiz. Con ACCION=leer no escribe nada.
+# Se lanza al cambiar .github/airtable_una_vez.txt en la rama main. Con ACCION=leer no escribe nada.
 on:
   push:
-    branches: [formato-quiz]
+    branches: [main]
     paths: [".github/airtable_una_vez.txt"]
 
 permissions:

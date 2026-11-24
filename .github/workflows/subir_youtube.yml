@@ -4,7 +4,7 @@ name: Subir Shorts a YouTube (API)
 # 02:00 de Madrid (ver videos/subir_youtube.py). Los que Buffer ya tiene para YouTube no se tocan.
 on:
   schedule:
-    - cron: "15 * * * *"   # cada hora
+    - cron: "5 * * * *"    # cada hora (Make publica a las 20:00 y 02:00 de Madrid; YouTube sale poco después)
   workflow_dispatch:
     inputs:
       solo_mirar:

@@ -114,12 +114,15 @@ def subidos(tok):
 def subir(tok, f, cuando):
     url = f["Vídeo"][0]["url"]
     datos = requests.get(url, timeout=300).content
-    publish = cuando.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    # sin hora (None): público ya, a la vez que Instagram y TikTok; con hora: privado y programado
+    estado = {"privacyStatus": "public"} if cuando is None else \
+        {"privacyStatus": "private", "publishAt": cuando.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")}
+    # voz sintética (Gemini): se declara, como hacía Buffer con isAiGenerated
+    estado.update(selfDeclaredMadeForKids=False, embeddable=True, license="youtube", containsSyntheticMedia=True)
     cuerpo = {"snippet": {"title": f["Título vídeo"][:100],
                           "description": (f.get("Caption") or "").replace("<", "‹").replace(">", "›")[:4900],
                           "categoryId": CATEGORIA, "defaultLanguage": "es", "defaultAudioLanguage": "es"},
-              "status": {"privacyStatus": "private", "publishAt": publish, "selfDeclaredMadeForKids": False,
-                         "embeddable": True, "license": "youtube"}}
+              "status": estado}
     r = requests.post("https://www.googleapis.com/upload/youtube/v3/videos", timeout=120,
                       params={"uploadType": "resumable", "part": "snippet,status", "notifySubscribers": "true"},
                       headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json; charset=UTF-8",
@@ -133,7 +136,8 @@ def subir(tok, f, cuando):
     vid = r.json()["id"]
     st = requests.get(f"{YT}/videos", headers={"Authorization": f"Bearer {tok}"}, params={"part": "status", "id": vid},
                       timeout=60).json()["items"][0]["status"]
-    if st.get("privacyStatus") != "private" or not st.get("publishAt"):
+    esperado = "public" if cuando is None else "private"
+    if st.get("privacyStatus") != esperado:  # p. ej. «private» bloqueado por ser una app sin verificar
         print(f"  [aviso] estado raro tras subir: {st}", flush=True)
     return vid
 
@@ -163,18 +167,22 @@ def main():
             filas.append(f"| {autor} | se sube en la siguiente ejecución (máximo {MAXIMO}) |")
             continue
         else:
-            cuando = siguiente_hueco(ocupados)
+            # 24 nov 2026: Make ya publica a las 20:00 y 02:00 (Madrid); YouTube sale enseguida, a la vez.
+            # (Con PROGRAMAR=1 se vuelve a los huecos de HORAS.)
+            cuando = siguiente_hueco(ocupados) if os.environ.get("PROGRAMAR") == "1" else None
+            ahora = datetime.now(MADRID)
             if SOLO_MIRAR:
-                txt = f"(solo mirar) se subiría para el {cuando:%d/%m %H:%M}"
+                txt = f"(solo mirar) se subiría {'para el ' + format(cuando, '%d/%m %H:%M') if cuando else 'ya, en público'}"
             else:
                 try:
                     vid = subir(tok, f, cuando)
-                    txt = f"📅 https://youtu.be/{vid} · sale {cuando:%d/%m %H:%M}"
+                    txt = f"📅 https://youtu.be/{vid} · sale {(cuando or ahora):%d/%m %H:%M}"
                 except Exception as e:
                     filas.append(f"| {autor} | ⚠️ {str(e)[:200]} |")
                     print(f"- {autor}: ⚠️ {e}", flush=True)
                     continue
-            ocupados.add(cuando)
+            if cuando:
+                ocupados.add(cuando)
             hechas += 1
         if not txt.startswith("(solo mirar)"):
             guardar(p["id"], txt)  # en el momento: nunca se sube dos veces

@@ -1,9 +1,9 @@
 name: Vídeo largo quiz (sin publicar)
 
-# Se lanza al cambiar .github/quiz_largo.txt en la rama formato-quiz. Solo lee Airtable: no escribe ni publica.
+# Se lanza al cambiar .github/quiz_largo.txt en la rama main. Solo lee Airtable: no escribe ni publica.
 on:
   push:
-    branches: [formato-quiz]
+    branches: [main]
     paths: [".github/quiz_largo.txt"]
   schedule:
     # 25 nov 2026 a las 09:30 de Madrid: el cupo de la voz buena se renueva hacia las 09:00 y la repesca de los
