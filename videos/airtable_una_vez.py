@@ -43,6 +43,20 @@ def main():
         f = {k: (v if not isinstance(v, list) else f"[{len(v)} adjunto(s)]") for k, v in r["fields"].items()
              if k not in ("Caption",)}
         lineas.append(f"{r['id']}: " + json.dumps(f, ensure_ascii=False)[:1500])
+    if a.get("ACCION") == "pausar_viejos":
+        # 24 nov 2026: ningún Short más con el formato viejo. Las «Aprobado» cuyo vídeo no es «-quiz» pasan a
+        # «Aprobado (falta quiz)»: Make no las publica y generar.py las vuelve a «Aprobado» al rehacerlas en quiz.
+        cambios = []
+        for r in regs:
+            f = r["fields"]
+            if f.get("Estado") == "Aprobado" and not any("-quiz.mp4" in (v.get("filename") or "") for v in f.get("Vídeo") or []):
+                cambios.append({"id": r["id"], "fields": {"Estado": "Aprobado (falta quiz)"}})
+                lineas.append(f"{r['id']} ({f.get('Autor')}): Aprobado → Aprobado (falta quiz)")
+            elif f.get("Estado") == "Aprobado":
+                lineas.append(f"{r['id']} ({f.get('Autor')}): ya es quiz, sigue Aprobado")
+        for i in range(0, len(cambios), 10):
+            api("PATCH", f"{BASE}/{T_PUB}", {"records": cambios[i:i + 10], "typecast": True})
+        lineas.append(f"ESCRITO: {len(cambios)} publicación(es) fuera de la cola hasta tener su quiz")
     if a.get("ACCION") == "hashtags_quiz":
         # 24 nov 2026: los quiz ya hechos llevaban 8 hashtags; se dejan los 5 de ahora (#quiz, #frasescelebres y los
         # 3 autores). Solo toca la última línea del Caption de los no publicados con vídeo «-quiz».
