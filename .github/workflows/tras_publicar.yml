@@ -1,0 +1,28 @@
+name: Tras publicar (lo lanza Make)
+
+# 24 nov 2026: los cron de GitHub llegan con 6-11 h de retraso. Make (escenario 02), que sí es puntual, llama a
+# este workflow al terminar cada publicación (20:00 y 02:00 de Madrid) y este lanza al momento:
+#   1. la subida del Short a YouTube por la API,
+#   2. la comprobación en Buffer y los comentarios de YouTube,
+#   3. la repesca de vídeos (Shorts nuevos o por rehacer en formato quiz).
+# Una sola llamada desde Make (1 operación del plan gratis) por publicación.
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  lanzar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Subir el Short a YouTube
+        run: gh workflow run subir_youtube.yml --ref main -f solo_mirar=false -f maximo=4
+      - name: Comprobar publicaciones y comentarios
+        run: gh workflow run comprobar.yml --ref main -f dias=4 -f solo_mirar=false
+      - name: Repesca de vídeos
+        run: gh workflow run videos.yml --ref main -f limite=16 -f rehacer=true -f limpiar=false -f comentarios=20 -f solo_mirar=false
