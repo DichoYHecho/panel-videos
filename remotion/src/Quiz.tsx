@@ -56,7 +56,10 @@ export const Quiz: React.FC<DatosQuiz> = (d) => {
 	const fichaVis = 1 - rampa(t, T.BUCLE - 0.15, 0.35);
 	const zoom = 1.04 + 0.06 * Math.sin(Math.PI * Math.min(t / T.DUR, 1)) + 0.03 * rampa(t, T.finO, 0.9) * (1 - rampa(t, T.REV, 0.5));
 	const tPal = d.voz.cita.palabras.map((x) => T.C0 + x);
-	const tTarj = d.voz.opciones.tarjetas.map((k) => T.O0 + (d.voz.opciones.palabras[k] ?? (k * d.voz.opciones.dur) / 6) - 0.05);
+	// 24 nov 2026: las tres caras se ven desde el primer fotograma (lo que llama la atención en el feed) y vuelven
+	// al final para que el bucle enlace sin salto
+	const tTarj = [-0.6, -0.6, -0.6]; // ya puestas en el fotograma 0
+	const tTarjFin = [T.BUCLE + 0.1, T.BUCLE + 0.18, T.BUCLE + 0.26];
 	const tNombre = T.A0 + (d.voz.autor.palabras[0] ?? 0.2) - 0.05;
 	const tEtiq = d.voz.autor.etiqueta !== undefined && d.voz.autor.palabras[d.voz.autor.etiqueta] !== undefined ? T.A0 + d.voz.autor.palabras[d.voz.autor.etiqueta] - 0.05 : tNombre + 1.1;
 	const letras = d.autor.toUpperCase().split('');
@@ -70,7 +73,7 @@ export const Quiz: React.FC<DatosQuiz> = (d) => {
 			<MarcoTema color={tema.color} t={t} ancho={W} alto={H} />
 
 			{/* Pregunta: primero grande en el centro, luego arriba */}
-			<div style={{position: 'absolute', left: CX - 470, width: 940, top: lerp(800, 170, sube), textAlign: 'center', opacity: preguntaVis, transform: `scale(${lerp(1.25, 1, sube)})`, transformOrigin: '50% 0%'}}>
+			<div style={{position: 'absolute', left: CX - 470, width: 940, top: lerp(500, 170, sube), textAlign: 'center', opacity: preguntaVis, transform: `scale(${lerp(1.25, 1, sube)})`, transformOrigin: '50% 0%'}}>
 				<Comillas tipo="abre" t={t < T.BUCLE ? t : t - T.BUCLE - 0.2} t0={-0.2} tam={260} estilo={{opacity: 1 - sube, height: lerp(110, 0, sube), overflow: 'visible'}} />
 				<div style={{fontFamily: INTER, fontWeight: 800, fontSize: 74, lineHeight: 1.1, color: '#fff', textShadow: '0 4px 24px rgba(0,0,0,0.7)'}}>
 					{d.pregunta.split(' ').map((p, i) => {
@@ -93,6 +96,7 @@ export const Quiz: React.FC<DatosQuiz> = (d) => {
 
 			{/* Quiz */}
 			{t < T.REV + 0.9 && <Opciones opciones={d.opciones} correcta={d.correcta} entradas={tTarj} t={t} rev={T.REV} salida={tarjetasFuera} cx={CX} top={960} />}
+			{t > T.BUCLE && <Opciones opciones={d.opciones} correcta={d.correcta} entradas={tTarjFin} t={t} rev={T.DUR + 99} salida={0} cx={CX} top={960} />}
 			<Comenta t={t} t0={T.finO - 0.9} t1={T.REV} cx={CX} top={1480} />
 
 			{/* Ficha del autor */}
