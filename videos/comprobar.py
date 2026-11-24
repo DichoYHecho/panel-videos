@@ -37,7 +37,7 @@ def airtable(metodo, ruta, datos=None):
 def por_comprobar():
     formula = f"AND({{Estado}}='Publicado', OR({{{CAMPO}}}='', FIND('⏳', {{{CAMPO}}}), FIND('⚠', {{{CAMPO}}})))"
     params = [("pageSize", "100"), ("filterByFormula", formula), ("fields[]", "Frase"), ("fields[]", "Autor"),
-              ("fields[]", "Caption"), ("fields[]", "Vídeo"), ("fields[]", CAMPO), ("fields[]", "YouTube")]
+              ("fields[]", "Caption"), ("fields[]", "Vídeo"), ("fields[]", CAMPO), ("fields[]", "Comentario YouTube")]
     return leer_todas(params)
 
 
@@ -159,7 +159,7 @@ def resultado(pub, posts):
     hay_video = any(c in mejor for c in ("Reel", "TikTok", "YouTube"))
     if hay_video or (f.get("Vídeo") and cuando and cuando >= VIDEO_DESDE):
         esperadas += ["Reel", "TikTok", "YouTube"]
-    directo = (f.get("YouTube") or "").startswith("https")
+    directo = bool(re.search(r"youtu\.be/|youtube\.com/watch", f.get("Comentario YouTube") or ""))
     if directo and "YouTube" not in mejor:  # 24 nov 2026: subido por la API (subir_youtube.py), no por Buffer
         esperadas = [c for c in esperadas if c != "YouTube"]
     bien = [c for c in esperadas if c in mejor and mejor[c]["status"] == "sent"]

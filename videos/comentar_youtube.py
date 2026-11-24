@@ -27,9 +27,9 @@ CLAVES = ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")
 
 def por_comentar():
     formula = (f"AND({{Estado}}='Publicado', {{Comentario}}!='', "
-               f"OR({{{CAMPO}}}='', FIND('⚠', {{{CAMPO}}})))")
+               f"OR({{{CAMPO}}}='', FIND('⚠', {{{CAMPO}}}), FIND('📅', {{{CAMPO}}})))")
     params = [("pageSize", "100"), ("filterByFormula", formula)] + \
-             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO, "YouTube")]
+             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO)]
     return leer_todas(params)
 
 
@@ -107,8 +107,9 @@ def main():
         ahora = datetime.now(MADRID).strftime("%d/%m %H:%M")
         p = short_de(pub, posts)
         video = id_video(p.get("externalLink")) if p else None
-        # 24 nov 2026: Shorts subidos por la API (campo «YouTube»: «https://youtu.be/<id> · sale 25/11 20:00»)
-        yt = f.get("YouTube") or ""
+        # 24 nov 2026: Shorts subidos por la API (subir_youtube.py apunta en este mismo campo
+        # «📅 https://youtu.be/<id> · sale 25/11 20:00»; tras un fallo de comentario queda «⚠️ … · https://youtu.be/<id> · …»)
+        yt = f.get(CAMPO) or ""
         m = re.search(r"sale (\d\d)/(\d\d) (\d\d):(\d\d)", yt)
         if not video and id_video(yt):
             if m and datetime.now(MADRID) < datetime(datetime.now(MADRID).year, int(m[2]), int(m[1]), int(m[3]), int(m[4]), tzinfo=MADRID):
@@ -125,8 +126,8 @@ def main():
             try:
                 cid = comentar(token, video, f["Comentario"].strip())
                 txt = f"✅ {ahora} · https://www.youtube.com/watch?v={video}&lc={cid}"
-            except Exception as e:
-                txt = f"⚠️ {ahora} · {str(e)[:200]}"
+            except Exception as e:  # el enlace del vídeo se conserva: sin él, subir_youtube.py lo subiría otra vez
+                txt = f"⚠️ {ahora} · https://youtu.be/{video} · {str(e)[:180]}"
             guardar(pub["id"], txt)   # en el momento, para no comentar nunca dos veces
             detalle = txt
         print(f"- {autor}: {detalle}", flush=True)
