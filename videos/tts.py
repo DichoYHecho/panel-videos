@@ -270,7 +270,7 @@ def sintetizar_quiz(trozos, grupos, carpeta, voz="m"):
 # piden hasta POR_LOTE Shorts de la misma voz en una petición, se corta por las pausas entre Shorts y cada trozo
 # se guarda en la caché con la clave que buscará sintetizar_quiz (que así no gasta otra petición).
 DIFERIR = None
-POR_LOTE = 5
+POR_LOTE = 8  # ~2 min de audio por petición
 
 
 def precargar_quiz(pendientes):

@@ -6,6 +6,10 @@ on:
     - cron: "30 2 * * 0,3" # domingos y miércoles a las 03:30, después del lote del escenario 1 (02:00)
     - cron: "0 12 * * *"   # todos los días a las 13:00: repesca (créditos corregidos, fallos, voz)
     - cron: "0 3 1 * *"    # el día 1 de cada mes a las 04:00: limpieza de vídeos ya publicados
+    # Solo el 25 nov 2026 (paso al formato quiz): 2 tandas más, a las 15:00 y a las 17:30, para rehacer todos los
+    # Shorts viejos en el día. Quitar después (si no, se repetirían el 25 nov del año que viene).
+    - cron: "0 14 25 11 *"
+    - cron: "30 16 25 11 *"
   workflow_dispatch:
     inputs:
       limite:

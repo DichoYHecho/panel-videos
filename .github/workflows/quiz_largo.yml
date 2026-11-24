@@ -76,7 +76,7 @@ jobs:
         with:
           name: quiz-largo
           path: salida_largo/
-          retention-days: 3
+          retention-days: 7
 
       - name: Guardar las voces (para no gastar cupo si se repite)
         if: always()
