@@ -317,7 +317,8 @@ def preparar(rec_id, frase, autor, cita, quien, mujer, foto_autor, banco, tmp):
 
 def duracion(props):
     v = props["voz"]
-    return 0.1 + v["gancho"]["dur"] + v["cita"]["dur"] + v["opciones"]["dur"] + 0.9 + 0.5 + v["autor"]["dur"] - 0.2 + 2.0 + 0.7
+    # igual que tiempos() de Quiz.tsx: 5 s de cuenta atrás y 3 s más de ficha (24 nov 2026)
+    return 0.1 + v["gancho"]["dur"] + v["cita"]["dur"] + v["opciones"]["dur"] + 5.0 + 0.5 + v["autor"]["dur"] + 3.0 + 2.0 + 0.7
 
 
 def renderizar(props, salida, tmp, semilla):

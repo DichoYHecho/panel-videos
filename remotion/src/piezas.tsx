@@ -171,14 +171,31 @@ export const Comenta: React.FC<{t: number; t0: number; t1: number; cx: number; t
 	const e = pop(t, t0, 0.4) * (1 - rampa(t, t1 - 0.2, 0.2));
 	if (e <= 0.01) return null;
 	const paso = (t1 - t0) / 3;
+	// 24 nov 2026: con 3 s o más, cuenta atrás con número y anillo (tiempo para leer las opciones y pensar)
+	const reloj = t1 - t0 >= 3;
+	const p = Math.min(Math.max((t - t0) / (t1 - t0), 0), 1);
+	const n = Math.max(1, Math.ceil(t1 - t - 0.001));
+	const latido = 1 + 0.18 * (1 - ((t1 - t) % 1));
+	const r = 30;
+	const c = 2 * Math.PI * r;
 	return (
-		<div style={{position: 'absolute', left: cx - 400, width: 800, top, display: 'flex', justifyContent: 'center', opacity: Math.min(e * 1.4, 1), transform: `scale(${0.8 + 0.2 * e})`}}>
-			<div style={{display: 'flex', alignItems: 'center', gap: 18, padding: '16px 34px', borderRadius: 50, background: 'rgba(0,0,0,0.6)', border: `3px solid ${AMARILLO}`, fontFamily: INTER, fontWeight: 800, fontSize: 46, color: '#fff'}}>
+		<div style={{position: 'absolute', left: cx - 420, width: 840, top, display: 'flex', justifyContent: 'center', opacity: Math.min(e * 1.4, 1), transform: `scale(${0.8 + 0.2 * e})`}}>
+			<div style={{display: 'flex', alignItems: 'center', gap: 18, padding: reloj ? '10px 14px 10px 34px' : '16px 34px', borderRadius: 50, background: 'rgba(0,0,0,0.6)', border: `3px solid ${AMARILLO}`, fontFamily: INTER, fontWeight: 800, fontSize: 46, color: '#fff'}}>
 				💬 Comenta: <span style={{color: AMARILLO}}>¿A, B o C?</span>
-				{[0, 1, 2].map((k) => {
-					const on = t >= t0 + paso * (k + 0.2);
-					return <span key={k} style={{width: 16, height: 16, borderRadius: 8, background: on ? AMARILLO : 'rgba(255,255,255,0.25)', transform: `scale(${on ? 1 + 0.4 * (1 - rampa(t, t0 + paso * (k + 0.2), 0.25)) : 1})`}} />;
-				})}
+				{reloj ? (
+					<div style={{position: 'relative', width: 76, height: 76, flexShrink: 0}}>
+						<svg width={76} height={76} style={{position: 'absolute', inset: 0}}>
+							<circle cx={38} cy={38} r={r} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={7} />
+							<circle cx={38} cy={38} r={r} fill="none" stroke={AMARILLO} strokeWidth={7} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * p} transform="rotate(-90 38 38)" />
+						</svg>
+						<div style={{position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42, fontWeight: 900, color: AMARILLO, transform: `scale(${latido})`}}>{n}</div>
+					</div>
+				) : (
+					[0, 1, 2].map((k) => {
+						const on = t >= t0 + paso * (k + 0.2);
+						return <span key={k} style={{width: 16, height: 16, borderRadius: 8, background: on ? AMARILLO : 'rgba(255,255,255,0.25)', transform: `scale(${on ? 1 + 0.4 * (1 - rampa(t, t0 + paso * (k + 0.2), 0.25)) : 1})`}} />;
+					})
+				)}
 			</div>
 		</div>
 	);

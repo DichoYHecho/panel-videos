@@ -20,15 +20,19 @@ const W = 1080;
 const H = 1920;
 const CX = 530; // algo a la izquierda por los botones de la app
 
+const CUENTA = 5.0;
+const FICHA = 3.0;
 export const tiempos = (d: DatosQuiz) => {
 	const G0 = 0.1;
 	const C0 = G0 + d.voz.gancho.dur;
 	const O0 = C0 + d.voz.cita.dur;
 	const finO = O0 + d.voz.opciones.dur;
-	const REV = finO + 0.9; // cuenta atrás de «Comenta»
+	// 24 nov 2026: 5 s de cuenta atrás para leer las opciones y pensar, y la ficha (mapa, línea de vida) 3 s más
+	// en pantalla. Si cambia algo aquí, cambiar también quiz.duracion().
+	const REV = finO + CUENTA; // cuenta atrás de «Comenta»
 	const A0 = REV + 0.5; // la voz dice el nombre cuando las tarjetas ya se han ido
 	const finA = A0 + d.voz.autor.dur;
-	const SUS = finA - 0.2;
+	const SUS = finA + FICHA;
 	const BUCLE = SUS + 2.0;
 	const DUR = BUCLE + 0.7;
 	return {G0, C0, O0, finO, REV, A0, finA, SUS, BUCLE, DUR};
@@ -97,7 +101,7 @@ export const Quiz: React.FC<DatosQuiz> = (d) => {
 			{/* Quiz */}
 			{t < T.REV + 0.9 && <Opciones opciones={d.opciones} correcta={d.correcta} entradas={tTarj} t={t} rev={T.REV} salida={tarjetasFuera} cx={CX} top={960} />}
 			{t > T.BUCLE && <Opciones opciones={d.opciones} correcta={d.correcta} entradas={tTarjFin} t={t} rev={T.DUR + 99} salida={0} cx={CX} top={960} />}
-			<Comenta t={t} t0={T.finO - 0.9} t1={T.REV} cx={CX} top={1480} />
+			<Comenta t={t} t0={T.finO} t1={T.REV} cx={CX} top={1480} />
 
 			{/* Ficha del autor */}
 			{t > T.REV + 0.6 && fichaVis > 0.001 && (
@@ -180,8 +184,9 @@ export const Quiz: React.FC<DatosQuiz> = (d) => {
 			})}
 			{[
 				{t: 0.02, s: 'pop', v: 0.3},
-				...tTarj.map((x) => ({t: x, s: 'pop', v: 0.35})),
-				{t: T.finO - 0.9, s: 'subida', v: 0.25},
+				{t: T.finO, s: 'subida', v: 0.25},
+				// tic de la cuenta atrás, cada segundo
+				...[1, 2, 3, 4].map((k) => ({t: T.finO + k, s: 'pop', v: 0.12 + 0.05 * k})),
 				{t: T.REV, s: 'campana', v: 0.4},
 				{t: T.REV + 0.05, s: 'whoosh', v: 0.35},
 				{t: tEtiq, s: 'pop', v: 0.3},
