@@ -23,6 +23,7 @@ from comprobar import CANAL, DIAS, MADRID, T_PUB, airtable, clase, leer_todas, l
 CAMPO = "Comentario YouTube"
 SOLO_MIRAR = os.environ.get("SOLO_MIRAR") == "1"
 CLAVES = ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")
+MAX_COMENTARIOS = int(os.environ.get("MAX_COMENTARIOS") or 5)
 
 
 def por_comentar():
@@ -102,7 +103,14 @@ def main():
     posts = [p for p in posts_buffer(desde) if CANAL.get(p.get("channelId")) == "youtube"]
     token = None if SOLO_MIRAR else acceso()
     filas = []
+    # 24 nov 2026: como mucho MAX_COMENTARIOS por ejecución (2 al día), los vídeos más nuevos primero: muchos
+    # comentarios seguidos del propio canal pueden parecerle spam a YouTube
+    pubs.sort(key=lambda p: p.get("createdTime", ""), reverse=True)
+    hechos = 0
     for pub in pubs:
+        if hechos >= MAX_COMENTARIOS:
+            print(f"Límite de {MAX_COMENTARIOS} comentarios por ejecución: el resto, en la siguiente.", flush=True)
+            break
         f, autor = pub["fields"], pub["fields"].get("Autor", "?")
         ahora = datetime.now(MADRID).strftime("%d/%m %H:%M")
         p = short_de(pub, posts)
@@ -130,6 +138,7 @@ def main():
                 txt = f"⚠️ {ahora} · https://youtu.be/{video} · {str(e)[:180]}"
             guardar(pub["id"], txt)   # en el momento, para no comentar nunca dos veces
             detalle = txt
+            hechos += 1
         print(f"- {autor}: {detalle}", flush=True)
         filas.append(f"| {autor} | {detalle.replace('|', '/')} |")
     resumen = os.environ.get("GITHUB_STEP_SUMMARY")
