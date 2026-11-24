@@ -1,0 +1,45 @@
+name: Subir Shorts a YouTube (API)
+
+# 24 nov 2026: los Shorts quiz ya «Publicado» se suben a YouTube con su API, programados a las 20:00 o a las
+# 02:00 de Madrid (ver videos/subir_youtube.py). Los que Buffer ya tiene para YouTube no se tocan.
+on:
+  schedule:
+    - cron: "15 * * * *"   # cada hora
+  workflow_dispatch:
+    inputs:
+      solo_mirar:
+        description: "Solo enseñar qué se subiría, sin subir ni escribir nada"
+        type: boolean
+        default: false
+      maximo:
+        description: "Cuántos Shorts subir como máximo en esta ejecución"
+        required: true
+        default: "4"
+
+concurrency:
+  group: subir-youtube
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  subir:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      SOLO_MIRAR: ${{ inputs.solo_mirar && '1' || '0' }}
+      MAXIMO: ${{ inputs.maximo || '4' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - name: Subir a YouTube los Shorts publicados
+        run: cd videos && python3 subir_youtube.py

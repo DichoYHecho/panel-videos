@@ -29,7 +29,7 @@ def por_comentar():
     formula = (f"AND({{Estado}}='Publicado', {{Comentario}}!='', "
                f"OR({{{CAMPO}}}='', FIND('⚠', {{{CAMPO}}})))")
     params = [("pageSize", "100"), ("filterByFormula", formula)] + \
-             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO)]
+             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO, "YouTube")]
     out, offset = [], None
     while True:
         q = urllib.parse.urlencode(params + ([("offset", offset)] if offset else []))
@@ -114,6 +114,14 @@ def main():
         ahora = datetime.now(MADRID).strftime("%d/%m %H:%M")
         p = short_de(pub, posts)
         video = id_video(p.get("externalLink")) if p else None
+        # 24 nov 2026: Shorts subidos por la API (campo «YouTube»: «https://youtu.be/<id> · sale 25/11 20:00»)
+        yt = f.get("YouTube") or ""
+        m = re.search(r"sale (\d\d)/(\d\d) (\d\d):(\d\d)", yt)
+        if not video and id_video(yt):
+            if m and datetime.now(MADRID) < datetime(datetime.now(MADRID).year, int(m[2]), int(m[1]), int(m[3]), int(m[4]), tzinfo=MADRID):
+                print(f"- {autor}: su Short sale a las {m[3]}:{m[4]} del {m[1]}/{m[2]}; se comenta después", flush=True)
+                continue
+            p, video = {"status": "sent"}, id_video(yt)
         if not p:
             detalle = f"su Short no está en Buffer en los últimos {DIAS} días (se deja como está)"
         elif not video:
