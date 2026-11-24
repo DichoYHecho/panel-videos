@@ -68,8 +68,9 @@ def es_quiz(f):
 
 def en_buffer(f, posts):
     cap, frase = norm(f.get("Caption")), letras(f.get("Frase"))[:50]
-    return any(clase(p) == "YouTube" and (norm(p.get("text")) == cap or (frase and frase in letras(p.get("text"))))
-               for p in posts)
+    # solo cuenta si Buffer lo ha enviado o lo va a enviar; si falló («daily posting limit»), se sube por la API
+    return any(clase(p) == "YouTube" and p.get("status") in ("sent", "sending", "scheduled")
+               and (norm(p.get("text")) == cap or (frase and frase in letras(p.get("text")))) for p in posts)
 
 
 def huecos_ocupados(pubs):
