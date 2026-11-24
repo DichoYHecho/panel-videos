@@ -1,0 +1,29 @@
+name: Ordenar citas (antes de que Make genere el lote)
+
+# 24 nov 2026: recalcula «Orden» de las citas sin usar (efemérides, público de América Latina y España, temas
+# de fe/consuelo/sabiduría, autores conocidos, variedad). Make (escenario 01) genera 7 publicaciones los
+# domingos y miércoles a las 02:00 de Madrid cogiendo las primeras por «Orden».
+on:
+  schedule:
+    - cron: "0 23 * * 2,6"   # miércoles y domingo a las 00:00 de Madrid en invierno (2 h antes del lote)
+  workflow_dispatch:
+    inputs:
+      solo_mirar:
+        description: "Solo enseñar el orden nuevo, sin escribir nada en Airtable"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  ordenar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      SOLO_MIRAR: ${{ inputs.solo_mirar && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Ordenar las citas sin usar
+        run: python3 videos/ordenar_citas.py
