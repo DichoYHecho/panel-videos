@@ -1,0 +1,46 @@
+name: Estadísticas de YouTube
+
+# 24 nov 2026: una foto diaria de las visitas de cada Short (rama «datos»: youtube.csv e informe.md).
+on:
+  schedule:
+    - cron: "30 7 * * *"   # todos los días a las 08:30 de Madrid en invierno
+  workflow_dispatch:
+
+concurrency:
+  group: estadisticas
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # guarda los datos en la rama «datos»
+
+jobs:
+  estadisticas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - name: Rama «datos» (se crea vacía la primera vez)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin datos; then
+            git worktree add datos origin/datos -B datos
+          else
+            git worktree add --orphan -b datos datos
+          fi
+      - name: Foto del día e informe
+        run: python3 videos/estadisticas_youtube.py datos
+      - name: Guardar en la rama «datos»
+        working-directory: datos
+        run: |
+          git add youtube.csv informe.md
+          git commit -m "Estadísticas de YouTube $(date +%F)" || exit 0
+          git push origin datos
