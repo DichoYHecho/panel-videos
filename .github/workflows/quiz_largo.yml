@@ -5,6 +5,11 @@ on:
   push:
     branches: [formato-quiz]
     paths: [".github/quiz_largo.txt"]
+  schedule:
+    # 25 nov 2026 a las 09:30 de Madrid: el cupo de la voz buena se renueva hacia las 09:00 y la repesca de los
+    # Shorts es a las 13:00. Quitar después (si no, se repetiría el 25 nov del año que viene).
+    - cron: "30 8 25 11 *"
+  workflow_dispatch:
 
 concurrency:
   group: videos   # nunca a la vez que el montaje diario
