@@ -1,6 +1,4 @@
 # Cambio puntual en Airtable (videos/airtable_una_vez.py). Subir este archivo a la rama formato-quiz lo ejecuta.
-# 22 nov 2026: el quiz de Rabindranath Tagore se sube a mano a YouTube; su versión clásica sale de la cola de Make.
-ACCION=escribir
-AUTOR=Rabindranath Tagore
-CAMPO=Estado
-VALOR=Por Revisar
+# 24 nov 2026: solo lectura. ¿En qué Estado está Simone de Beauvoir? (su quiz ya se subió a mano el 21 nov)
+ACCION=leer
+AUTOR=Simone de Beauvoir
