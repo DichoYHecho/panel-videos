@@ -255,8 +255,43 @@ def sintetizar_quiz(trozos, grupos, carpeta, voz="m"):
     (gancho, cita, opciones, autor). Un solo audio de Gemini (prosodia natural) que se corta en las pausas
     entre partes. Guarda <carpeta>/{gancho,cita,opciones,autor}.wav y devuelve, por parte, su duración y el
     segundo (dentro de su archivo) de cada token. Lanza SinVoz si no hay voz."""
+    if DIFERIR is not None:  # 1.ª pasada de generar.py: solo se apunta el texto (ver precargar_quiz)
+        limpios = [texto_voz(t) for t in trozos]
+        texto = " ".join(t if re.search(r"[.,;:?!…]$", t) else t + "." for t in limpios)
+        clave = hashlib.sha1(f"quiz|{VOCES_QUIZ[voz]}|{ESTILO_QUIZ}|{texto}".encode()).hexdigest()[:20]
+        if not os.path.exists(os.path.join(CACHE, f"{clave}.wav")):
+            DIFERIR.append((clave, voz, trozos))
+            raise SinVoz("voz diferida: se pide junto con otros Shorts")
     return sintetizar_partes(trozos, grupos, ("gancho", "cita", "opciones", "autor"), carpeta,
                              VOCES_QUIZ[voz], ESTILO_QUIZ, "quiz")
+
+
+# Varios Shorts en un solo audio (24 nov 2026). El cupo gratis es de 10 PETICIONES al día, no de 10 vídeos: se
+# piden hasta POR_LOTE Shorts de la misma voz en una petición, se corta por las pausas entre Shorts y cada trozo
+# se guarda en la caché con la clave que buscará sintetizar_quiz (que así no gasta otra petición).
+DIFERIR = None
+POR_LOTE = 5
+
+
+def precargar_quiz(pendientes):
+    """`pendientes` = [(clave de caché, voz «m»/«f», trozos)]. Devuelve cuántos Shorts quedan con voz en caché."""
+    hechos = 0
+    for voz in ("m", "f"):
+        suyos = [p for p in pendientes if p[1] == voz]
+        for i in range(0, len(suyos), POR_LOTE):
+            lote = suyos[i:i + POR_LOTE]
+            trozos = [t for _, _, ts in lote for t in ts]
+            try:
+                sintetizar_partes(trozos, [len(ts) for _, _, ts in lote], [c for c, _, _ in lote], CACHE,
+                                  VOCES_QUIZ[voz], ESTILO_QUIZ, "quizlote")
+                hechos += len(lote)
+                print(f"  voz en lote: {len(lote)} Shorts ({VOCES_QUIZ[voz]}) en 1 petición", flush=True)
+            except SinVoz as e:
+                print(f"  sin voz para el lote: {str(e)[:120]}", flush=True)
+                return hechos
+            except Exception as e:  # p. ej. Whisper no separa bien los Shorts: esos se harán uno a uno
+                print(f"  lote de voz descartado ({str(e)[:120]}); esos Shorts se harán uno a uno", flush=True)
+    return hechos
 
 
 def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, prefijo):
@@ -285,6 +320,8 @@ def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, pref
     try:
         por_trozo = alinear_palabras(x, limpios)
     except Exception:
+        if modelo == "caché":  # audio guardado que no vale (p. ej. mal cortado de un lote): se pedirá de nuevo
+            os.remove(ruta_cache)
         if os.environ.get("DEPURAR_VOZ"):  # guarda el audio para escucharlo/revisarlo
             os.makedirs(os.environ["DEPURAR_VOZ"], exist_ok=True)
             sf.write(os.path.join(os.environ["DEPURAR_VOZ"], f"fallo-{clave}.wav"), x, SR, subtype="PCM_16")

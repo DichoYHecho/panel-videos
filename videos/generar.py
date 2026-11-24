@@ -382,6 +382,8 @@ def main():
                    and not any(MARCA + ".mp4" in (a.get("filename") or "") for a in r["fields"][CAMPO_VIDEO])]
         print(f"Publicaciones sin vídeo: {len(pendientes)}; con la voz de antes: {len(rehacer)}. "
               f"Se harán como mucho {LIMITE}.")
+        # primero las aprobadas que esperan su quiz (24 nov 2026): son las siguientes en publicarse
+        rehacer.sort(key=lambda x: x[1].get("Estado") != "Aprobado (falta quiz)")
         pendientes += rehacer
         citas = listar(T_CITAS, ["Cita", "Autor", "Wikipedia", "Fuente", "Foto manual"]) if pendientes else []
         if FORMATO == "quiz":
@@ -389,10 +391,27 @@ def main():
                                           for c in citas if c["fields"].get("Wikipedia")))
             print(f"Formato quiz: {len(BANCO)} autores en el banco para las opciones.")
 
+    if FORMATO == "quiz" and not PRUEBA and pendientes:
+        # 1.ª pasada (24 nov 2026): se preparan los Shorts sin pedir la voz, apuntando sus textos; luego se piden
+        # varios Shorts en cada petición a Gemini (tts.precargar_quiz) y la 2.ª pasada (la normal) los encuentra en caché.
+        import tts
+        tts.DIFERIR = []
+        for rec_id, pub in pendientes[:LIMITE]:
+            try:
+                cita = buscar_cita(pub, citas)
+                if cita is not None:
+                    with tempfile.TemporaryDirectory() as tmp:
+                        hacer_video(rec_id, pub, cita, tmp)  # se para al pedir la voz; no se escribe nada
+            except Exception as e:
+                print(f"  (1.ª pasada) {pub.get('Autor')}: {str(e)[:120]}", flush=True)
+        diferidas, tts.DIFERIR = tts.DIFERIR, None
+        if diferidas:
+            print(f"Voz: {len(diferidas)} Shorts sin voz guardada; se piden en lotes de {tts.POR_LOTE}.", flush=True)
+            print(f"Voz: {tts.precargar_quiz(diferidas)} Shorts con voz lista.", flush=True)
+
     filas, errores, hechos = [], 0, 0
     for rec_id, pub in pendientes:
         if hechos >= LIMITE or len(_agotados) >= len(MODELOS): break  # sin cupo de voz: otro día
-        if FORMATO == "quiz" and MODELOS[0] in _agotados: break  # el quiz solo usa la voz buena
         autor = pub.get("Autor", "?")
         t0 = time.time()
         try:
@@ -411,6 +430,8 @@ def main():
                             cambios[CAMPO_VIDEO] = [{"id": nuevo}]
                         cambios[CAMPO_TITULO] = (info["titulo"] if FORMATO == "quiz"
                                                  else titulo_video(pub["Frase"].strip(), autor.strip()))
+                        if FORMATO == "quiz" and pub.get("Estado") == "Aprobado (falta quiz)":
+                            cambios["Estado"] = "Aprobado"  # ya tiene su quiz: vuelve a la cola de Make
                         actualizar([(rec_id, cambios)])  # título, crédito y «Quién era»: 1 sola llamada
                     hechos += 1
                     msg = (f"{info['duracion']} s, {info['mb']} MB, voz {info['voz']}, "
