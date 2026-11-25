@@ -37,9 +37,11 @@ def tiene_video(texto):
 
 def publicaciones():
     out, offset = [], None
-    formula = "{Estado}='Publicado'"
+    # ADELANTAR=1 (25 nov 2026): sube ya el siguiente «Aprobado» con quiz (el más antiguo); cuando Make lo publique
+    # en Instagram/TikTok/Facebook, aquí ya tendrá su enlace y no se vuelve a subir
+    formula = "{Estado}='Aprobado'" if os.environ.get("ADELANTAR") == "1" else "{Estado}='Publicado'"
     while True:
-        q = [("pageSize", "100"), ("filterByFormula", formula)] + \
+        q = [("pageSize", "100"), ("filterByFormula", formula), ("sort[0][field]", "Fecha de Creación")] + \
             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Vídeo", "Título vídeo", CAMPO)]
         if offset:
             q.append(("offset", offset))
@@ -153,7 +155,9 @@ def main():
               f"· título={'sí' if f.get('Título vídeo') else 'NO'} · {CAMPO}={(f.get(CAMPO) or '')[:60]!r}", flush=True)
     candidatas =[p for p in pubs if es_quiz(p["fields"]) and not tiene_video(p["fields"].get(CAMPO))
                   and p["fields"].get("Título vídeo")]
-    print(f"Publicaciones «Publicado» con quiz y sin enlace de YouTube: {len(candidatas)}")
+    if os.environ.get("ADELANTAR") == "1":
+        candidatas = candidatas[:1]
+    print(f"Publicaciones con quiz y sin enlace de YouTube: {len(candidatas)}")
     # 25 nov 2026: nada puede fallar en silencio. Cualquier fallo deja la ejecución en rojo (GitHub avisa por correo).
     fallos = []
     tok = token()

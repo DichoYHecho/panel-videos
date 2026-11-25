@@ -15,6 +15,10 @@ on:
         description: "Cuántos Shorts subir como máximo en esta ejecución"
         required: true
         default: "4"
+      adelantar:
+        description: "Subir ya el siguiente «Aprobado» (sin esperar a que Make lo publique)"
+        type: boolean
+        default: false
 
 concurrency:
   group: subir-youtube
@@ -35,6 +39,7 @@ jobs:
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       SOLO_MIRAR: ${{ inputs.solo_mirar && '1' || '0' }}
       MAXIMO: ${{ inputs.maximo || '4' }}
+      ADELANTAR: ${{ inputs.adelantar && '1' || '0' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
