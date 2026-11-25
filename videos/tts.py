@@ -316,6 +316,10 @@ def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, pref
     idx = np.where(np.abs(x) > 0.012)[0]
     if len(idx):
         x = x[max(idx[0] - int(0.02 * SR), 0):min(idx[-1] + int(0.06 * SR), len(x))]
+    if len(x) < int(0.5 * SR):  # 25 nov 2026: un trozo de lote mal cortado (vacío): se borra y se pide de nuevo
+        if modelo == "caché":
+            os.remove(ruta_cache)
+        raise RuntimeError(f"audio vacío o demasiado corto ({len(x) / SR:.2f} s); se pedirá de nuevo")
     x = (x / (np.max(np.abs(x)) + 1e-6) * 0.9).astype(np.float32)
     try:
         por_trozo = alinear_palabras(x, limpios)
@@ -348,7 +352,7 @@ def sintetizar_partes(trozos, grupos, nombres, carpeta, voz_nombre, estilo, pref
         if len(trozo) > 2 * f:
             trozo[:f] *= np.linspace(0, 1, f)
             trozo[-f:] *= np.linspace(1, 0, f)
-        if np.sqrt(np.mean(trozo ** 2)) < 0.005:
+        if len(trozo) < int(0.5 * SR) or np.sqrt(np.mean(trozo ** 2)) < 0.005:
             raise RuntimeError(f"el trozo «{nombre}» ha quedado en silencio")
         sf.write(os.path.join(carpeta, f"{nombre}.wav"), trozo, SR, subtype="PCM_16")
         res[nombre] = {"dur": round(b - a, 3), "tokens": [round(t - a, 3) for i in p for t in por_trozo[i]],

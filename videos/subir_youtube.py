@@ -16,7 +16,7 @@ Qué hace (cada hora, workflow «Subir Shorts a YouTube»):
 Cupo: cada subida gasta ~1.600 unidades de las 10.000 diarias; como mucho MAXIMO por ejecución.
 Secrets: AIRTABLE_TOKEN, BUFFER_API_KEY, YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN.
 Variables: SOLO_MIRAR=1 (no sube ni escribe nada; solo dice qué haría)."""
-import json, os, re, urllib.parse
+import json, os, re, sys, urllib.parse
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -108,7 +108,8 @@ def subidos(tok):
     lista = canal["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
     items = requests.get(f"{YT}/playlistItems", headers=h, timeout=60,
                          params={"part": "snippet,contentDetails", "playlistId": lista, "maxResults": 50}).json().get("items", [])
-    return {norm(i["snippet"]["title"]): i["contentDetails"]["videoId"] for i in items}
+    ultima = max((i["snippet"].get("publishedAt") or "" for i in items), default="")
+    return {norm(i["snippet"]["title"]): i["contentDetails"]["videoId"] for i in items}, ultima
 
 
 def subir(tok, f, cuando):
@@ -138,7 +139,8 @@ def subir(tok, f, cuando):
                       timeout=60).json()["items"][0]["status"]
     esperado = "public" if cuando is None else "private"
     if st.get("privacyStatus") != esperado:  # p. ej. «private» bloqueado por ser una app sin verificar
-        print(f"  [aviso] estado raro tras subir: {st}", flush=True)
+        raise RuntimeError(f"subido como https://youtu.be/{vid} pero su estado es {st.get('privacyStatus')} "
+                           f"y debía ser {esperado}: {st}")
     return vid
 
 
@@ -152,12 +154,16 @@ def main():
     candidatas =[p for p in pubs if es_quiz(p["fields"]) and not tiene_video(p["fields"].get(CAMPO))
                   and p["fields"].get("Título vídeo")]
     print(f"Publicaciones «Publicado» con quiz y sin enlace de YouTube: {len(candidatas)}")
+    # 25 nov 2026: nada puede fallar en silencio. Cualquier fallo deja la ejecución en rojo (GitHub avisa por correo).
+    fallos = []
+    tok = token()
+    canal, ultima = subidos(tok)
     if not candidatas:
+        vigilar(ultima, fallos)
+        terminar(fallos, [])
         return
     desde = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
     posts = [p for p in posts_buffer(desde) if CANAL.get(p.get("channelId")) == "youtube"]
-    tok = token()
-    canal = subidos(tok)
     ocupados = huecos_ocupados(pubs)
     filas, hechas = [], 0
     for p in candidatas:
@@ -185,6 +191,7 @@ def main():
                 except Exception as e:
                     filas.append(f"| {autor} | ⚠️ {str(e)[:200]} |")
                     print(f"- {autor}: ⚠️ {e}", flush=True)
+                    fallos.append(f"{autor}: no se ha podido subir a YouTube ({str(e)[:200]})")
                     continue
             if cuando:
                 ocupados.add(cuando)
@@ -193,10 +200,32 @@ def main():
             guardar(p["id"], txt)  # en el momento: nunca se sube dos veces
         print(f"- {autor}: {txt}", flush=True)
         filas.append(f"| {autor} | {txt} |")
+        if txt.startswith("📅 https://youtu.be/") and "sale" in txt:
+            ultima = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    vigilar(ultima, fallos)
+    terminar(fallos, filas)
+
+
+def vigilar(ultima, fallos):
+    """Alarma si el canal lleva más de 26 h sin un Short nuevo (se publica 2 veces al día)."""
+    if not ultima:
+        return
+    horas = (datetime.now(timezone.utc) - datetime.fromisoformat(ultima.replace("Z", "+00:00"))).total_seconds() / 3600
+    print(f"Último vídeo subido al canal: hace {horas:.0f} h", flush=True)
+    if horas > 26:
+        fallos.append(f"YouTube lleva {horas:.0f} h sin ningún Short nuevo. Revisa qué ha publicado Make "
+                      "(¿una publicación que ya estaba en YouTube?) y si hay Shorts en «Aprobado».")
+
+
+def terminar(fallos, filas):
     resumen = os.environ.get("GITHUB_STEP_SUMMARY")
     if resumen:
         with open(resumen, "a") as out:
             out.write("## Shorts subidos a YouTube por la API\n\n| Autor | Resultado |\n|---|---|\n" + "\n".join(filas) + "\n")
+            if fallos:
+                out.write("\n### ⚠️ Fallos\n\n" + "\n".join(f"- {x}" for x in fallos) + "\n")
+    if fallos and not SOLO_MIRAR:
+        sys.exit("FALLO: " + " | ".join(fallos))
 
 
 if __name__ == "__main__":
