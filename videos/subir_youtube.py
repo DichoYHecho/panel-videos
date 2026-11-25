@@ -144,7 +144,12 @@ def subir(tok, f, cuando):
 
 def main():
     pubs = publicaciones()
-    candidatas = [p for p in pubs if es_quiz(p["fields"]) and not tiene_video(p["fields"].get(CAMPO))
+    # diagnóstico: las 6 últimas publicadas (para ver por qué una no se sube)
+    for p in sorted(pubs, key=lambda p: p.get("createdTime", ""), reverse=True)[:6]:
+        f = p["fields"]
+        print(f"  · {f.get('Autor')}: quiz={es_quiz(f)} · vídeo={[a.get('filename') for a in f.get('Vídeo') or []]} "
+              f"· título={'sí' if f.get('Título vídeo') else 'NO'} · {CAMPO}={(f.get(CAMPO) or '')[:60]!r}", flush=True)
+    candidatas =[p for p in pubs if es_quiz(p["fields"]) and not tiene_video(p["fields"].get(CAMPO))
                   and p["fields"].get("Título vídeo")]
     print(f"Publicaciones «Publicado» con quiz y sin enlace de YouTube: {len(candidatas)}")
     if not candidatas:
