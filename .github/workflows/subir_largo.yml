@@ -1,0 +1,39 @@
+name: Subir vídeo largo a YouTube
+
+# 25 nov 2026: descarga el vídeo largo que montó un run de «quiz_largo.yml» y lo sube a YouTube, público ya,
+# con el título y la descripción de .github/largo_youtube.json. Se lanza a mano (tras revisar el vídeo).
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Número del run de «Vídeo largo» que tiene el vídeo (artefacto quiz-largo)"
+        required: true
+
+concurrency:
+  group: subir-youtube
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  subir:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - name: Descargar el vídeo largo
+        run: gh run download "${{ inputs.run_id }}" -R "${{ github.repository }}" -n quiz-largo -D largo
+      - name: Subirlo a YouTube
+        run: cd videos && python3 subir_largo.py ../largo/quiz-largo.mp4 ../.github/largo_youtube.json

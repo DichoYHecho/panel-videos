@@ -128,8 +128,13 @@ def credito_commons(archivo):
         "action": "query", "format": "json", "prop": "imageinfo", "iiprop": "extmetadata", "titles": "File:" + archivo})
     r.raise_for_status()
     info = next(iter(r.json()["query"]["pages"].values())).get("imageinfo", [{}])[0].get("extmetadata", {})
-    autor = re.sub(r"<[^>]+>", "", info.get("Artist", {}).get("value", "")).strip() or "Autor desconocido"
-    autor = re.sub(r"\s+", " ", autor)[:90]
+    import html
+    autor = html.unescape(re.sub(r"<[^>]+>", "", info.get("Artist", {}).get("value", ""))).strip()
+    autor = re.sub(r"\s+", " ", re.sub(r"^Template:", "", autor))
+    autor = re.sub(r"^(.+?)\1$", r"\1", autor)   # «Unknown artistUnknown artist» (plantillas de Commons)
+    if not autor or re.fullmatch(r"(?i)(unknown|anonymous|anonimo|anónimo)( (artist|author|photographer|painter))?", autor):
+        autor = "Autor desconocido"
+    autor = autor[:90]
     lic = info.get("LicenseShortName", {}).get("value", "")
     return f"{autor} ({lic})" if lic else autor
 
