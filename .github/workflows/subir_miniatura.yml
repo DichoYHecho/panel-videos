@@ -1,0 +1,30 @@
+name: Poner miniatura en YouTube
+
+# 25 nov 2026: pone la miniatura .github/miniaturas/<video_id>.jpg al vídeo <video_id>. Se lanza a mano.
+on:
+  workflow_dispatch:
+    inputs:
+      video_id:
+        description: "ID del vídeo de YouTube (la imagen va en .github/miniaturas/<ID>.jpg)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  poner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q requests
+      - name: Poner la miniatura
+        run: cd videos && python3 subir_miniatura.py "${{ inputs.video_id }}" "../.github/miniaturas/${{ inputs.video_id }}.jpg"
