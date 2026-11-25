@@ -23,15 +23,39 @@ from comprobar import CANAL, DIAS, MADRID, T_PUB, airtable, clase, leer_todas, l
 CAMPO = "Comentario YouTube"
 SOLO_MIRAR = os.environ.get("SOLO_MIRAR") == "1"
 CLAVES = ("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")
-MAX_COMENTARIOS = int(os.environ.get("MAX_COMENTARIOS") or 5)
+MAX_COMENTARIOS = int(os.environ.get("MAX_COMENTARIOS") or 15)
 
 
 def por_comentar():
     formula = (f"AND({{Estado}}='Publicado', {{Comentario}}!='', "
                f"OR({{{CAMPO}}}='', FIND('⚠', {{{CAMPO}}}), FIND('📅', {{{CAMPO}}})))")
     params = [("pageSize", "100"), ("filterByFormula", formula)] + \
-             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", CAMPO)]
+             [("fields[]", c) for c in ("Frase", "Autor", "Caption", "Comentario", "Título vídeo", CAMPO)]
     return leer_todas(params)
+
+
+def videos_canal(token, maximo=500):
+    """[(título, id)] de los vídeos del canal (25 nov 2026: para los Shorts que ya no están en los últimos
+    días de Buffer; antes se quedaban sin comentario para siempre)."""
+    canal = pedir("https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true", token=token)
+    lista = canal["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    out, pagina = [], ""
+    while len(out) < maximo:
+        d = pedir("https://www.googleapis.com/youtube/v3/playlistItems?" + urllib.parse.urlencode(
+            {"part": "snippet,contentDetails", "playlistId": lista, "maxResults": 50, "pageToken": pagina}), token=token)
+        out += [(i["snippet"]["title"], i["contentDetails"]["videoId"]) for i in d.get("items", [])]
+        pagina = d.get("nextPageToken")
+        if not pagina:
+            break
+    return out
+
+
+def buscar_en_canal(f, videos):
+    tit, frase = norm(f.get("Título vídeo")), letras(f.get("Frase"))[:30]
+    for t, vid in videos:
+        if (tit and norm(t) == tit) or (frase and frase in letras(t)):
+            return vid
+    return None
 
 
 def guardar(rec_id, texto):
@@ -106,7 +130,7 @@ def main():
     # 24 nov 2026: como mucho MAX_COMENTARIOS por ejecución (2 al día), los vídeos más nuevos primero: muchos
     # comentarios seguidos del propio canal pueden parecerle spam a YouTube
     pubs.sort(key=lambda p: p.get("createdTime", ""), reverse=True)
-    hechos = 0
+    hechos, videos = 0, None
     for pub in pubs:
         if hechos >= MAX_COMENTARIOS:
             print(f"Límite de {MAX_COMENTARIOS} comentarios por ejecución: el resto, en la siguiente.", flush=True)
@@ -124,6 +148,13 @@ def main():
                 print(f"- {autor}: su Short sale a las {m[3]}:{m[4]} del {m[1]}/{m[2]}; se comenta después", flush=True)
                 continue
             p, video = {"status": "sent"}, id_video(yt)
+        if not video and token and (not p or p.get("status") == "error"):
+            if videos is None:
+                videos = videos_canal(token)
+                print(f"Vídeos del canal leídos: {len(videos)}", flush=True)
+            v = buscar_en_canal(f, videos)
+            if v:
+                p, video = {"status": "sent"}, v
         if not p:
             detalle = f"su Short no está en Buffer en los últimos {DIAS} días (se deja como está)"
         elif not video:
