@@ -5,6 +5,8 @@ import {Miniatura, type DatosMiniatura} from './Miniatura';
 import {EJEMPLO, type DatosQuiz} from './datos';
 import {QuizLargo, duracionQuizLargo, type DatosQuizLargo} from './QuizLargo';
 import {QUIZ_LARGO_PRUEBA} from './datosLargo';
+import {LoDijo, duracionLoDijo, type DatosLoDijo} from './LoDijo';
+import {LODIJO_EINSTEIN} from './datosLoDijo';
 
 const MINIATURA_EJEMPLO: DatosMiniatura = {foto: 'ejemplo/simone.jpg', recorte: 'ejemplo/simone_recorte.png', proporcion: 689 / 516, tema: 'coraje', cabeza: [0.57, 0.38]};
 
@@ -31,6 +33,17 @@ export const Root: React.FC = () => (
 			fps={30}
 			width={1920}
 			height={1080}
+		/>
+		{/* prototipo fase 2 (27 nov 2026) */}
+		<Composition
+			id="LoDijo"
+			component={LoDijo}
+			defaultProps={LODIJO_EINSTEIN}
+			durationInFrames={duracionLoDijo(LODIJO_EINSTEIN)}
+			calculateMetadata={({props}) => ({durationInFrames: duracionLoDijo(props as DatosLoDijo)})}
+			fps={30}
+			width={1080}
+			height={1920}
 		/>
 	</>
 );
