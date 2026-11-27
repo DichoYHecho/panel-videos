@@ -1,0 +1,66 @@
+# Fase 3.1 (27 nov 2026): motor de los formatos nuevos en MODO ENSAYO. Renderiza las fichas de formatos/fichas/
+# (voz de Gemini en castellano, Whisper, tiempos ajustados a las pausas y Remotion) y deja los MP4 como artefacto
+# (se borra a los 3 días). No toca Airtable ni publica nada. Solo en la rama prototipos-formatos.
+name: Prototipo render formatos
+on:
+  push:
+    branches: [prototipos-formatos]
+    paths: ["formatos/fichas/**", "videos/formatos.py", "remotion/src/**", ".github/workflows/prototipo_render.yml"]
+  workflow_dispatch:
+    inputs:
+      fichas:
+        description: "Fichas a renderizar (patrón)"
+        default: "formatos/fichas/*.json"
+concurrency:
+  group: prototipo-render
+  cancel-in-progress: true
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instalar librerías de Python
+        run: pip install -r requirements.txt
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: remotion/package-lock.json
+      - name: Instalar Remotion y su navegador
+        working-directory: remotion
+        run: |
+          npm ci --no-audit --no-fund
+          npx remotion browser ensure
+      - name: Caché del modelo de Whisper «medium»
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-medium-v1
+      - name: Recuperar las voces ya hechas
+        uses: actions/cache/restore@v4
+        with:
+          path: cache/voces
+          key: formatos-voces-${{ github.run_id }}
+          restore-keys: formatos-voces-
+      - name: Renderizar las fichas
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python videos/formatos.py "${{ inputs.fichas || 'formatos/fichas/*.json' }}"
+      - name: Guardar las voces
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cache/voces
+          key: formatos-voces-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: formatos-render
+          path: |
+            salida/*.mp4
+            salida/*.props.json
+          retention-days: 3
