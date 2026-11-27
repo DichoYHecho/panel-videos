@@ -1,0 +1,27 @@
+# Voces para prototipos de formatos nuevos (fase 2, 27 nov 2026). Solo se lanza al subir cambios a la rama
+# prototipos-formatos. No toca Airtable ni publica: deja los WAV como artefacto (se borra a los 3 días).
+name: Prototipo voces
+on:
+  push:
+    branches: [prototipos-formatos]
+    paths: ["prototipos/voces.json", "videos/prototipo_voz.py", ".github/workflows/prototipo_voz.yml"]
+jobs:
+  voz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Instalar librerías de Python
+        run: pip install -r requirements.txt
+      - name: Generar las voces
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python videos/prototipo_voz.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prototipo-voces
+          path: pruebas_voz/
+          retention-days: 3
