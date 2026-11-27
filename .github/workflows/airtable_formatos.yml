@@ -1,0 +1,22 @@
+# Fase 3.2 (27 nov 2026): crea o completa la tabla «Vídeos» de la base «Formatos DyH». Idempotente: no borra nada.
+# Se lanza al subir cambios a este script en la rama prototipos-formatos (o a mano desde Actions).
+name: Airtable formatos (esquema)
+on:
+  push:
+    branches: [prototipos-formatos]
+    paths: ["videos/airtable_formatos.py", ".github/workflows/airtable_formatos.yml"]
+  workflow_dispatch:
+jobs:
+  esquema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Crear o completar la tabla
+        env:
+          AIRTABLE_TOKEN_FORMATOS: ${{ secrets.AIRTABLE_TOKEN_FORMATOS }}
+        run: python videos/airtable_formatos.py
