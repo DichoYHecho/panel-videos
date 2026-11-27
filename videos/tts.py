@@ -1,4 +1,4 @@
-﻿"""Voz del vídeo y tiempos de cada trozo (gancho, frases de la cita y autor) para los subtítulos.
+"""Voz del vídeo y tiempos de cada trozo (gancho, frases de la cita y autor) para los subtítulos.
 
 Fase V2 (23 oct 2026): voz de Gemini, mucho más natural que la de antes (Piper).
 - Autor: «Koda». Autora: «Kore». Estilo: narrador de documental tranquilo, acento de España.
