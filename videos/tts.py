@@ -1,4 +1,4 @@
-"""Voz del vídeo y tiempos de cada trozo (gancho, frases de la cita y autor) para los subtítulos.
+﻿"""Voz del vídeo y tiempos de cada trozo (gancho, frases de la cita y autor) para los subtítulos.
 
 Fase V2 (23 oct 2026): voz de Gemini, mucho más natural que la de antes (Piper).
 - Autor: «Koda». Autora: «Kore». Estilo: narrador de documental tranquilo, acento de España.
@@ -21,11 +21,12 @@ MODELOS = ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"]
 VOCES = {"m": "Koda", "f": "Kore"}
 ESTILO = ("Calm, warm documentary narrator. Native Castilian Spanish accent from Spain. "
           "Sincere and thoughtful, natural pauses between sentences, never sounds like an advert.")
-# Formato quiz (21 nov 2026): voces elegidas de oído y español neutro (más de la mitad del público es de América).
-VOCES_QUIZ = {"m": "Enceladus", "f": "Achernar"}
-ESTILO_QUIZ = ("A real person telling a friend a curious fact over coffee. Neutral Spanish (español neutro), "
-               "with no strong regional accent, easy to understand for listeners in Mexico, Colombia, Argentina, "
-               "the United States and Spain. Not a narrator, not an announcer, not an advert. Relaxed, warm and "
+# Formato quiz: desde el 27 nov 2026, voz en castellano de España, como el resto de vídeos (decisión de Adrià:
+# nada de español neutro ni latino, aunque gran parte del público sea de América). Mismas voces que la frase célebre.
+VOCES_QUIZ = {"m": "Koda", "f": "Kore"}
+ESTILO_QUIZ = ("A real person from Spain telling a friend a curious fact over coffee. Native Castilian Spanish "
+               "accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. "
+               "Not a narrator, not an announcer, not an advert. Relaxed, warm and "
                "close to the microphone, with natural breathing. Unhurried and very clear, because many listeners "
                "are older. Ask the opening question with genuine curiosity; read the quote slower, savouring it; "
                "say the three options as a playful little quiz; reveal the author's name with a hint of a smile.")
