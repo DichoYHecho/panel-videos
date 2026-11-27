@@ -8,7 +8,7 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {AMARILLO, FPS, INTER, ROJO, lerp, pop, rampa, suave} from './base';
-import {MapaPais, type Pais} from './piezas';
+import {MapaPro, type DatosMapa} from './mapas';
 import {Entra, Palabras, type Palabra} from './LoDijo';
 
 type Hito = {titulo: string; sub: string; icono: 'estela' | 'libro' | 'mejilla'; frase?: string; t: number};
@@ -17,7 +17,7 @@ export type DatosOrigen = {
 	voz: {archivo: string; dur: number; palabras: Palabra[]};
 	musica: string;
 	gancho: {a: string; b: string; tB: number};
-	pais: Pais;
+	mapa: DatosMapa;
 	t: {mapa: number; anios: number; estela: number; lugar: number; ley: number; ley2: number; idea: number; linea: number; pregunta: number};
 	hace: string; // «hace casi 4.000 años»
 	ley: {rotulo: string; a: string; b: string};
@@ -28,7 +28,7 @@ export type DatosOrigen = {
 
 const ANCHO = 1080;
 const ALTO = 1920;
-const COLA = 0.6;
+const COLA = 2.8; // ~2 s más al final para que el público piense y comente
 const FONDO = '#0a0a0a';
 
 export const duracionOrigen = (d: DatosOrigen) => Math.round((d.voz.dur + COLA) * FPS);
@@ -106,26 +106,20 @@ const EscenaGancho: React.FC<{d: DatosOrigen; t: number}> = ({d, t}) => {
 
 const EscenaMapa: React.FC<{d: DatosOrigen; t: number}> = ({d, t}) => {
 	const T = d.t;
-	const zoom = lerp(1.0, 1.08, suave((t - T.mapa) / (T.ley - T.mapa)));
 	const eAnios = pop(t, T.anios - 0.05, 0.4);
 	const eEst = suave((t - T.estela + 0.1) / 0.7);
-	const eLugar = pop(t, T.lugar - 0.05, 0.4);
 	return (
 		<AbsoluteFill style={{background: FONDO}}>
-			<div style={{position: 'absolute', top: 200, left: 0, width: ANCHO, textAlign: 'center', opacity: Math.min(eAnios * 1.5, 1), transform: `translateY(${40 * (1 - eAnios)}px)`}}>
+			<div style={{position: 'absolute', top: 170, left: 0, width: ANCHO, textAlign: 'center', opacity: Math.min(eAnios * 1.5, 1), transform: `translateY(${40 * (1 - eAnios)}px)`}}>
 				<span style={{fontFamily: INTER, fontWeight: 900, fontSize: 86, color: AMARILLO, letterSpacing: -2}}>{d.hace}</span>
 			</div>
-			<div style={{position: 'absolute', top: 400, left: 90, transform: `scale(${zoom})`, transformOrigin: '50% 50%'}}>
-				<MapaPais pais={d.pais} t={t} t0={T.mapa} color="#8a6d12" ancho={900} alto={720} />
+			<div style={{position: 'absolute', top: 320, left: 40}}>
+				<MapaPro m={d.mapa} t={t} t0={T.mapa} tPin={T.lugar - 0.05} ancho={1000} alto={1000} />
 			</div>
-			<div style={{position: 'absolute', top: 1160, left: 90, opacity: Math.min(eLugar * 1.5, 1), transform: `scale(${0.7 + 0.3 * eLugar})`, transformOrigin: 'left center'}}>
-				<span style={{fontFamily: INTER, fontWeight: 900, fontSize: 64, color: '#fff'}}>{d.pais.ciudad}</span>
-				<div style={{fontFamily: INTER, fontWeight: 600, fontSize: 32, color: 'rgba(255,255,255,0.6)'}}>{d.pais.nombre}</div>
-			</div>
-			{/* la estela sube desde abajo */}
-			<div style={{position: 'absolute', right: 90, top: lerp(1900, 1080, eEst), textAlign: 'center'}}>
-				<Estela alto={440} e={rampa(t, T.estela + 0.3, 1.2)} />
-				<div style={{marginTop: 10, fontFamily: INTER, fontWeight: 800, fontSize: 34, color: '#fff', width: 300, marginLeft: -40}}>Código de Hammurabi</div>
+			{/* la estela sube desde abajo, encima de la esquina del mapa */}
+			<div style={{position: 'absolute', right: 70, top: lerp(1900, 1110, eEst), textAlign: 'center', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.8))'}}>
+				<Estela alto={400} e={rampa(t, T.estela + 0.3, 1.2)} />
+				<div style={{marginTop: 10, fontFamily: INTER, fontWeight: 800, fontSize: 34, color: '#fff', width: 300, marginLeft: -54}}>Código de Hammurabi</div>
 			</div>
 		</AbsoluteFill>
 	);
@@ -251,7 +245,26 @@ const EscenaPregunta: React.FC<{d: DatosOrigen; t: number}> = ({d, t}) => {
 				{tarjeta(d.opciones[1], '2', 1)}
 			</div>
 			<div style={{marginTop: 60, fontFamily: INTER, fontWeight: 700, fontSize: 40, color: 'rgba(255,255,255,0.75)', opacity: rampa(t, T.pregunta + 1.2, 0.4)}}>Escribe 1 o 2 en comentarios</div>
+			<CuentaAtras t={t} t0={d.voz.dur - 0.1} t1={d.voz.dur + COLA - 0.35} />
 		</AbsoluteFill>
+	);
+};
+
+/** Tiempo para pensar: un anillo que se vacía cuando la voz ya ha terminado, con un bocadillo de comentario dentro. */
+const CuentaAtras: React.FC<{t: number; t0: number; t1: number}> = ({t, t0, t1}) => {
+	const e = pop(t, t0, 0.4);
+	const p = Math.min(Math.max((t - t0) / (t1 - t0), 0), 1);
+	const r = 54;
+	const largo = 2 * Math.PI * r;
+	return (
+		<div style={{marginTop: 46, display: 'flex', alignItems: 'center', gap: 22, opacity: Math.min(e * 1.5, 1), transform: `scale(${0.7 + 0.3 * e})`}}>
+			<svg width={130} height={130} viewBox="0 0 130 130">
+				<circle cx={65} cy={65} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={9} />
+				<circle cx={65} cy={65} r={r} fill="none" stroke={AMARILLO} strokeWidth={9} strokeLinecap="round" strokeDasharray={largo} strokeDashoffset={largo * p} transform="rotate(-90 65 65)" />
+				<path d="M42 50 h46 a8 8 0 0 1 8 8 v18 a8 8 0 0 1 -8 8 h-26 l-12 10 v-10 h-8 a8 8 0 0 1 -8 -8 v-18 a8 8 0 0 1 8 -8 z" fill="#fff" />
+			</svg>
+			<span style={{fontFamily: INTER, fontWeight: 800, fontSize: 40, color: '#fff'}}>Piensa tu respuesta…</span>
+		</div>
 	);
 };
 
