@@ -1,4 +1,4 @@
-﻿"""Vídeo largo «¿Quién lo dijo? · El gran quiz de las frases» (22 nov 2026). SOLO LEE Airtable: no escribe ni publica.
+"""Vídeo largo «¿Quién lo dijo? · El gran quiz de las frases» (22 nov 2026). SOLO LEE Airtable: no escribe ni publica.
 
 Elige 20 preguntas del banco verificado (tabla Citas) repartidas en 4 niveles (5 por nivel) y lo monta con Remotion
 (composición QuizLargo, 1920x1080). Lo deja en salida_largo/ con un .txt para la descripción (créditos de las fotos).
