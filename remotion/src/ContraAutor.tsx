@@ -131,31 +131,66 @@ const EscenaCita: React.FC<{d: DatosContra; lado: 'a' | 'b'; t: number; t0: numb
 	);
 };
 
-/** Escena 5: la pregunta centrada, con los dos retratos para votar. */
+/**
+ * Escena 5: la pregunta arriba y, debajo, una balanza con los dos autores (1 y 2) en los platillos. La balanza
+ * se inclina hacia uno y hacia otro, como si no se decidiera, y un bocadillo pide «Escribe 1 o 2».
+ */
 const EscenaPregunta: React.FC<{d: DatosContra; t: number}> = ({d, t}) => {
 	const T = d.t;
-	const ePor = pop(t, T.pregunta + 0.35, 0.4);
-	const eCierre = rampa(t, T.pregunta + 1.4, 0.4);
-	const retrato = (a: Autor, i: number) => (
-		<div style={{textAlign: 'center', opacity: Math.min(ePor * 1.5, 1), transform: `translateX(${(i ? 1 : -1) * 80 * (1 - ePor)}px)`}}>
-			<div style={{width: 250, height: 250, borderRadius: '50%', overflow: 'hidden', border: `6px solid ${AMARILLO}`, position: 'relative'}}>
-				<Foto a={a} zoom={1.25} brillo={0.85} />
+	const t0 = T.pregunta;
+	const eBal = pop(t, t0 + 0.2, 0.5);
+	const eBoc = pop(t, t0 + 1.1, 0.45);
+	// inclinación: entra hacia A, luego oscila A/B; amortiguado para que no maree
+	const u = Math.max(t - t0 - 0.4, 0);
+	const angulo = 9 * Math.sin(u * 3.2) * (0.55 + 0.45 * Math.exp(-u * 0.8));
+	const rad = (angulo * Math.PI) / 180;
+	const CX = ANCHO / 2;
+	const CY = 880; // pivote
+	const L = 330; // media viga
+	const cuerda = 150;
+	const extremo = (s: number) => ({x: CX + s * L * Math.cos(rad), y: CY + s * L * Math.sin(rad)});
+	const platillo = (a: Autor, s: number, n: string) => {
+		const p = extremo(s);
+		const ganando = s * angulo > 2; // el platillo que baja se ilumina
+		return (
+			<div key={n} style={{position: 'absolute', left: p.x - 120, top: p.y + cuerda, width: 240, textAlign: 'center'}}>
+				<div style={{position: 'relative', width: 240, height: 240, borderRadius: '50%', overflow: 'hidden', border: `7px solid ${ganando ? AMARILLO : 'rgba(255,255,255,0.35)'}`, boxShadow: ganando ? '0 0 40px rgba(245,197,24,0.45)' : 'none'}}>
+					<Foto a={a} zoom={1.25} brillo={ganando ? 0.95 : 0.6} />
+				</div>
+				<div style={{position: 'absolute', top: -18, left: -6, width: 70, height: 70, borderRadius: '50%', background: AMARILLO, color: '#111', fontFamily: INTER, fontWeight: 900, fontSize: 44, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>{n}</div>
+				<div style={{marginTop: 14, fontFamily: INTER, fontWeight: 800, fontSize: 40, color: '#fff'}}>{a.nombre}</div>
 			</div>
-			<div style={{marginTop: 16, fontFamily: INTER, fontWeight: 800, fontSize: 40, color: '#fff'}}>{a.nombre}</div>
-		</div>
-	);
+		);
+	};
+	const A = extremo(-1);
+	const B = extremo(1);
+	const salto = Math.abs(Math.sin((t - t0) * 4)) * 10 * eBoc;
 	return (
-		<AbsoluteFill style={{background: FONDO, alignItems: 'center', justifyContent: 'center'}}>
-			<div style={{width: 940, textAlign: 'center', transform: `scale(${1 + 0.04 * suave((t - T.pregunta) / 2.5)})`}}>
-				<div style={{fontFamily: INTER, fontWeight: 900, fontSize: 112, lineHeight: 1.08, letterSpacing: -3, color: '#fff'}}>
-					<Palabras txt={d.pregunta} t={t} t0={T.pregunta - 0.05} paso={0.12} tam={112} />
-				</div>
-				<div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 60, marginTop: 70}}>
-					{retrato(d.a, 0)}
-					<div style={{fontFamily: INTER, fontWeight: 900, fontSize: 60, color: AMARILLO, opacity: ePor}}>o</div>
-					{retrato(d.b, 1)}
-				</div>
-				<div style={{marginTop: 50, fontFamily: INTER, fontWeight: 700, fontSize: 40, color: 'rgba(255,255,255,0.75)', opacity: eCierre}}>{d.cierre}</div>
+		<AbsoluteFill style={{background: FONDO}}>
+			<div style={{position: 'absolute', top: 250, left: 70, width: 940, textAlign: 'center', fontFamily: INTER, fontWeight: 900, fontSize: 104, lineHeight: 1.08, letterSpacing: -3, color: '#fff'}}>
+				<Palabras txt={d.pregunta} t={t} t0={t0 - 0.05} paso={0.12} tam={104} />
+			</div>
+			<AbsoluteFill style={{opacity: Math.min(eBal * 1.5, 1), transform: `translateY(${120 * (1 - eBal)}px)`}}>
+				<svg width={ANCHO} height={ALTO} style={{position: 'absolute', inset: 0}}>
+					{/* columna y base */}
+					<line x1={CX} y1={CY} x2={CX} y2={CY + 470} stroke="rgba(255,255,255,0.5)" strokeWidth={10} strokeLinecap="round" />
+					<rect x={CX - 120} y={CY + 465} width={240} height={16} rx={8} fill="rgba(255,255,255,0.5)" />
+					{/* cuerdas */}
+					<line x1={A.x} y1={A.y} x2={A.x} y2={A.y + cuerda} stroke="rgba(255,255,255,0.45)" strokeWidth={4} />
+					<line x1={B.x} y1={B.y} x2={B.x} y2={B.y + cuerda} stroke="rgba(255,255,255,0.45)" strokeWidth={4} />
+					{/* viga */}
+					<line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={AMARILLO} strokeWidth={14} strokeLinecap="round" />
+					<circle cx={CX} cy={CY} r={22} fill={AMARILLO} stroke="#111" strokeWidth={4} />
+				</svg>
+				{platillo(d.a, -1, '1')}
+				{platillo(d.b, 1, '2')}
+			</AbsoluteFill>
+			{/* bocadillo para comentar */}
+			<div style={{position: 'absolute', top: 1440 - salto, left: 0, width: ANCHO, textAlign: 'center', opacity: Math.min(eBoc * 1.5, 1), transform: `scale(${0.6 + 0.4 * eBoc})`}}>
+				<span style={{position: 'relative', display: 'inline-block', background: '#fff', color: '#111', fontFamily: INTER, fontWeight: 900, fontSize: 48, padding: '18px 40px', borderRadius: 40}}>
+					Escribe <span style={{color: '#111', background: AMARILLO, borderRadius: 12, padding: '0 14px'}}>1</span> o <span style={{color: '#111', background: AMARILLO, borderRadius: 12, padding: '0 14px'}}>2</span> 💬
+					<span style={{position: 'absolute', left: '50%', top: -18, marginLeft: -18, width: 0, height: 0, borderLeft: '18px solid transparent', borderRight: '18px solid transparent', borderBottom: '20px solid #fff'}} />
+				</span>
 			</div>
 		</AbsoluteFill>
 	);
