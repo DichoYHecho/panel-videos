@@ -34,7 +34,7 @@ const FONDO = '#0a0a0a';
 
 export const duracionLoDijo = (d: DatosLoDijo) => Math.round((d.voz.dur + COLA) * FPS);
 
-const Palabras: React.FC<{txt: string; t: number; t0: number; paso: number; tam: number; color?: string; clave?: string}> = ({txt, t, t0, paso, tam, color = '#fff', clave}) => (
+export const Palabras: React.FC<{txt: string; t: number; t0: number; paso: number; tam: number; color?: string; clave?: string}> = ({txt, t, t0, paso, tam, color = '#fff', clave}) => (
 	<>
 		{txt.split(' ').map((w, i) => {
 			const e = pop(t, t0 + i * paso, 0.32);
@@ -251,7 +251,7 @@ const EscenaPregunta: React.FC<{d: DatosLoDijo; t: number}> = ({d, t}) => {
 };
 
 /** Transición: la escena entrante sube y aparece en `dur` segundos. */
-const Entra: React.FC<{t: number; t0: number; dur?: number; children: React.ReactNode}> = ({t, t0, dur = 0.35, children}) => {
+export const Entra: React.FC<{t: number; t0: number; dur?: number; children: React.ReactNode}> = ({t, t0, dur = 0.35, children}) => {
 	const e = suave((t - t0) / dur);
 	return <AbsoluteFill style={{opacity: e, transform: `translateY(${80 * (1 - e)}px) scale(${lerp(1.04, 1, e)})`}}>{children}</AbsoluteFill>;
 };
