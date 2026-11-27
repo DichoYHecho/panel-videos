@@ -1,0 +1,26 @@
+{
+  "id": "lodijo_einstein",
+  "composicion": "LoDijo",
+  "voz": {
+    "nombre": "Koda",
+    "estilo": "Warm documentary narrator telling a surprising fact. Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. Natural and sincere, never sounds like an advert. Ask the opening question with intrigue: make a clear dramatic pause of about one second after 'esta frase de Einstein', then say 'nunca la dijo Einstein' with emphasis. Read the quote calmly. Pause, then say 'Falso.' firmly and briefly. Tell the real origin like a curious friend, at a lively pace, with a short pause before 'Pero Einstein'. Pause, then end with a friendly, light question.",
+    "texto": "¿Sabías que esta frase de Einstein... ⟦giro⟧nunca la dijo Einstein?\n\n⟦cita⟧La locura es hacer lo mismo una y otra vez y esperar resultados diferentes.⟦/cita⟧\n\n⟦veredicto⟧Falso.\n\n⟦origen⟧La frase aparece por primera vez en ⟦anio⟧1981, en un ⟦doc⟧folleto de Narcóticos Anónimos.\n\n⟦autorNodo⟧Pero Einstein vivió de ⟦vida0⟧1879 a ⟦vida1⟧1955: ⟦murio⟧murió ⟦anios⟧veintiséis años antes de que apareciera.\n\n⟦pregunta⟧¿Tú también creías que era suya?"
+  },
+  "musica": 11,
+  "fuentes": "Quote Investigator (2017); Chequeado; «The Ultimate Quotable Einstein» (Princeton, 2010, p. 474).",
+  "props": {
+    "foto": "proto/einstein.jpg",
+    "foco": [0.5, 0.3],
+    "fotoNodo": "proto/einstein.jpg",
+    "autor": "Albert Einstein",
+    "cita": "La *locura* es hacer lo mismo una y otra vez y esperar resultados diferentes.",
+    "veredicto": "falso",
+    "voz": "@voz",
+    "musica": "@musica",
+    "citaIdx": "@cita.idx",
+    "gancho": {"a": "¿Sabías que esta frase de Einstein…", "b": "nunca la dijo Einstein?", "tB": "@giro"},
+    "t": {"cita": "@cita", "veredicto": "@veredicto", "origen": "@origen", "anio": "@anio", "doc": "@doc", "autorNodo": "@autorNodo", "vida0": "@vida0", "vida1": "@vida1", "murio": "@murio", "anios": "@anios", "pregunta": "@pregunta"},
+    "origen": {"anio": 1981, "doc": "Narcóticos Anónimos", "docSub": "folleto", "nace": 1879, "muere": 1955},
+    "pregunta": "¿Tú también creías que era *suya*?"
+  }
+}
