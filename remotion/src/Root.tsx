@@ -9,6 +9,8 @@ import {LoDijo, duracionLoDijo, type DatosLoDijo} from './LoDijo';
 import {LODIJO_EINSTEIN} from './datosLoDijo';
 import {ContraAutor, duracionContra, type DatosContra} from './ContraAutor';
 import {CONTRA_MUERTE} from './datosContra';
+import {Origen, duracionOrigen, type DatosOrigen} from './Origen';
+import {ORIGEN_OJO} from './datosOrigen';
 
 const MINIATURA_EJEMPLO: DatosMiniatura = {foto: 'ejemplo/simone.jpg', recorte: 'ejemplo/simone_recorte.png', proporcion: 689 / 516, tema: 'coraje', cabeza: [0.57, 0.38]};
 
@@ -53,6 +55,16 @@ export const Root: React.FC = () => (
 			defaultProps={CONTRA_MUERTE}
 			durationInFrames={duracionContra(CONTRA_MUERTE)}
 			calculateMetadata={({props}) => ({durationInFrames: duracionContra(props as DatosContra)})}
+			fps={30}
+			width={1080}
+			height={1920}
+		/>
+		<Composition
+			id="Origen"
+			component={Origen}
+			defaultProps={ORIGEN_OJO}
+			durationInFrames={duracionOrigen(ORIGEN_OJO)}
+			calculateMetadata={({props}) => ({durationInFrames: duracionOrigen(props as DatosOrigen)})}
 			fps={30}
 			width={1080}
 			height={1920}
