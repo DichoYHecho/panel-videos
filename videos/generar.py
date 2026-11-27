@@ -1,4 +1,4 @@
-"""Crea el vídeo de cada publicación que aún no lo tiene y lo sube a Airtable (campo «Vídeo»).
+﻿"""Crea el vídeo de cada publicación que aún no lo tiene y lo sube a Airtable (campo «Vídeo»).
 
 - Lee en Publicaciones las que no están «Publicado» y no tienen vídeo (las más antiguas primero).
 - Busca su cita en la tabla Citas para sacar la Fuente (gancho) y la foto (Foto manual o Wikipedia).
@@ -44,7 +44,9 @@ REHACER = os.environ.get("REHACER", "1") == "1"
 # Remotion (quiz.py). Se elige con la variable del repositorio FORMATO (Settings › Variables); por defecto, clásico.
 FORMATO = (os.environ.get("FORMATO") or "clasico").strip().lower()
 # Marca del archivo: los vídeos que no la llevan se rehacen (después de los que no tienen vídeo)
-MARCA = "-quiz" if FORMATO == "quiz" else "-v2"  # -v2: voz de Gemini (23 oct 2026)
+# -v2: voz de Gemini (23 oct 2026). -quiz-es: quiz con voz en castellano de España (27 nov 2026); los quiz con
+# la voz neutra de antes («-quiz») se rehacen solos.
+MARCA = "-quiz-es" if FORMATO == "quiz" else "-v2"
 BANCO = []  # formato quiz: [(Autor, título Wikipedia)] de toda la tabla Citas (de ahí salen las opciones falsas)
 
 
