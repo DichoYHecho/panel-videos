@@ -44,9 +44,10 @@ REHACER = os.environ.get("REHACER", "1") == "1"
 # Remotion (quiz.py). Se elige con la variable del repositorio FORMATO (Settings › Variables); por defecto, clásico.
 FORMATO = (os.environ.get("FORMATO") or "clasico").strip().lower()
 # Marca del archivo: los vídeos que no la llevan se rehacen (después de los que no tienen vídeo)
-# -v2: voz de Gemini (23 oct 2026). -quiz-es: quiz con voz en castellano de España (27 nov 2026); los quiz con
-# la voz neutra de antes («-quiz») se rehacen solos.
-MARCA = "-quiz-es" if FORMATO == "quiz" else "-v2"
+# -v2: voz de Gemini (23 oct 2026). Los quiz nuevos ya salen con voz en castellano (27 nov 2026), pero los ya hechos
+# NO se rehacen todavía: se rehará todo junto cuando entren el gancho «¿Sabías que…?» y los motion graphics, para no
+# gastar la voz dos veces (decisión de Adrià, 27 nov).
+MARCA = "-quiz" if FORMATO == "quiz" else "-v2"
 BANCO = []  # formato quiz: [(Autor, título Wikipedia)] de toda la tabla Citas (de ahí salen las opciones falsas)
 
 
