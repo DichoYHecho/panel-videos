@@ -1,4 +1,4 @@
-"""Orden de las citas que aún no se han usado (24 nov 2026). Make (escenario 01, domingo y miércoles a las 02:00)
+﻿"""Orden de las citas que aún no se han usado (24 nov 2026). Make (escenario 01, domingo y miércoles a las 02:00)
 coge las 7 primeras por el campo «Orden» de Citas; este script recalcula ese campo antes, para que salgan primero:
 
 1. Efemérides: autores con aniversario de nacimiento o muerte en los próximos DIAS días (más si es redondo).
@@ -22,6 +22,13 @@ LATAM = {"Q96", "Q414", "Q739", "Q298", "Q419", "Q241", "Q77", "Q717", "Q811", "
 ESPANA = {"Q29"}
 TEMAS_BUENOS = re.compile(r"\b(dios|fe|alma|almas|esperanza|oraci[oó]n|rezar|cielo|consuelo|consolar|perd[oó]n|perdonar|"
                           r"bondad|gracia|sabidur[ií]a|sabio|sabia|virtud|paciencia|humildad|gratitud|agradecer)\b", re.I)
+
+
+# Norma de engagement (27 nov 2026): lo religioso es lo que más funciona (Santa Teresa, el Short más visto y con
+# más comentarios), seguido de la «sabiduría para la vida» (Feynman, Hipócrates, Frankl, Marco Aurelio, Sócrates…).
+RELIGIOSOS = re.compile(r"\b(San|Santa|Santo|Sor|Fray|Papa|Madre Teresa|Teresa de Calcuta|Juan Pablo|John Donne)\b")
+SABIOS = re.compile(r"S[oó]crates|S[eé]neca|Marco Aurelio|Epicteto|Confucio|Lao[- ]?Ts[eé]|Arist[oó]teles|Plat[oó]n|"
+                    r"Hip[oó]crates|Cicer[oó]n|Di[oó]genes|Mart[ií]|Frankl|Feynman|Einstein|Pascal|Gandhi|Luther King")
 
 
 def airtable(metodo, ruta, datos=None):
@@ -124,9 +131,12 @@ def main():
         origen = 2.0 if ciud & LATAM else 0.7 if ciud & ESPANA else 0.0
         tema = 1.0 if TEMAS_BUENOS.search(f.get("Cita", "")) else 0.0
         reciente = -4.0 if norm(f.get("Autor")) in recientes else 0.0
-        puntos = p_efe + fama + origen + tema + reciente
+        perfil = 3.0 if RELIGIOSOS.search(f.get("Autor", "")) else 1.5 if SABIOS.search(f.get("Autor", "")) else 0.0
+        puntos = p_efe + fama + origen + tema + reciente + perfil
         motivo = ", ".join(x for x in (txt_efe, "América Latina" if origen == 2 else "España" if origen else "",
-                                       "fe/consuelo/sabiduría" if tema else "", "publicado hace poco" if reciente else "") if x)
+                                       "fe/consuelo/sabiduría" if tema else "",
+                                       "autor religioso" if perfil == 3 else "sabiduría para la vida" if perfil else "",
+                                       "publicado hace poco" if reciente else "") if x)
         puntuadas.append((puntos, c, motivo))
     puntuadas.sort(key=lambda x: -x[0])
     # variedad: en cada lote de 7, como mucho una cita por autor
