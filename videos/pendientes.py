@@ -1,4 +1,4 @@
-﻿"""Paso previo rápido (sin instalar nada): ¿hay publicaciones que necesiten vídeo?
+"""Paso previo rápido (sin instalar nada): ¿hay publicaciones que necesiten vídeo?
 Escribe hay=true/false en GITHUB_OUTPUT para saltarse la instalación si no hay trabajo.
 Cuenta las que no están «Publicado» y no tienen «Vídeo» (salvo crédito pendiente «[…]»),
 las que tienen vídeo pero aún no tienen «Título vídeo» y, desde el 23 oct 2026 (fase V2),
