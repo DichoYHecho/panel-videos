@@ -9,6 +9,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, Img, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {AMARILLO, FPS, INTER, lerp, pop, rampa, suave} from './base';
 import {Entra, Palabras, type Palabra} from './LoDijo';
+import {Cierre} from './cierre';
 
 type Autor = {nombre: string; foto: string; foco: [number, number]; epoca: string; cita: string; citaIdx: [number, number]; desfase?: number};
 export type DatosContra = {
@@ -25,7 +26,7 @@ export type DatosContra = {
 
 const ANCHO = 1080;
 const ALTO = 1920;
-const COLA = 0.6;
+const COLA = 2.8; // ~2,5 s de cierre (Comenta, Me gusta, Síguenos) tras la voz
 const FONDO = '#0a0a0a';
 
 export const duracionContra = (d: DatosContra) => Math.round((d.voz.dur + COLA) * FPS);
@@ -185,8 +186,12 @@ const EscenaPregunta: React.FC<{d: DatosContra; t: number}> = ({d, t}) => {
 				{platillo(d.a, -1, '1')}
 				{platillo(d.b, 1, '2')}
 			</AbsoluteFill>
+			{/* al acabar la voz, el bocadillo deja paso al cierre */}
+			<div style={{position: 'absolute', top: 1370, left: 0, width: ANCHO}}>
+				<Cierre t={t} t0={d.voz.dur - 0.1} />
+			</div>
 			{/* bocadillo para comentar */}
-			<div style={{position: 'absolute', top: 1440 - salto, left: 0, width: ANCHO, textAlign: 'center', opacity: Math.min(eBoc * 1.5, 1), transform: `scale(${0.6 + 0.4 * eBoc})`}}>
+			<div style={{position: 'absolute', top: 1440 - salto, left: 0, width: ANCHO, textAlign: 'center', opacity: Math.min(eBoc * 1.5, 1) * (1 - rampa(t, d.voz.dur - 0.35, 0.3)), transform: `scale(${0.6 + 0.4 * eBoc})`}}>
 				<span style={{position: 'relative', display: 'inline-block', background: '#fff', color: '#111', fontFamily: INTER, fontWeight: 900, fontSize: 48, padding: '18px 40px', borderRadius: 40}}>
 					Escribe <span style={{color: '#111', background: AMARILLO, borderRadius: 12, padding: '0 14px'}}>1</span> o <span style={{color: '#111', background: AMARILLO, borderRadius: 12, padding: '0 14px'}}>2</span> 💬
 					<span style={{position: 'absolute', left: '50%', top: -18, marginLeft: -18, width: 0, height: 0, borderLeft: '18px solid transparent', borderRight: '18px solid transparent', borderBottom: '20px solid #fff'}} />
