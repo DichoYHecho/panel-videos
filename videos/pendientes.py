@@ -8,8 +8,8 @@ import json, os, urllib.parse, urllib.request
 BASE, T_PUB = "appeuC0uIAlqqp1h9", "tbl7ynqI9bJrWtR0m"
 REHACER = os.environ.get("REHACER", "1") == "1"
 # Formato quiz (21 nov 2026): los vídeos sin «-quiz» se rehacen; en el formato clásico, los que no llevan «-v2»
-# 27 nov 2026: «-quiz-es» = quiz con voz en castellano; los «-quiz» (voz neutra) se rehacen. Igual que en generar.py.
-MARCA = "-quiz-es.mp4" if (os.environ.get("FORMATO") or "").strip().lower() == "quiz" else "-v2.mp4"
+# 27 nov 2026: no se rehacen todavía los quiz con voz neutra (se rehará todo con el gancho nuevo). Igual que en generar.py.
+MARCA = "-quiz.mp4" if (os.environ.get("FORMATO") or "").strip().lower() == "quiz" else "-v2.mp4"
 params = [("pageSize", "100"), ("filterByFormula", "{Estado}!='Publicado'"),
           ("fields[]", "Frase"), ("fields[]", "Crédito foto"), ("fields[]", "Vídeo"), ("fields[]", "Título vídeo")]
 n, viejos, offset = 0, 0, None
