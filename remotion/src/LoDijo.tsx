@@ -8,6 +8,7 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Img, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {AMARILLO, FPS, INTER, ROJO, VERDE, lerp, pop, rampa, suave} from './base';
+import {Cierre} from './cierre';
 
 export type Palabra = {w: string; a: number; b: number};
 export type DatosLoDijo = {
@@ -29,7 +30,7 @@ export type DatosLoDijo = {
 
 const ANCHO = 1080;
 const ALTO = 1920;
-const COLA = 0.6;
+const COLA = 2.8; // ~2,5 s de cierre (Comenta, Me gusta, Síguenos) tras la voz
 const FONDO = '#0a0a0a';
 
 export const duracionLoDijo = (d: DatosLoDijo) => Math.round((d.voz.dur + COLA) * FPS);
@@ -245,6 +246,7 @@ const EscenaPregunta: React.FC<{d: DatosLoDijo; t: number}> = ({d, t}) => {
 					);
 				})}
 				<div style={{marginTop: 50, fontSize: 40, fontWeight: 700, letterSpacing: 0, color: 'rgba(255,255,255,0.7)', opacity: eSub}}>Cuéntalo en comentarios</div>
+				<Cierre t={t} t0={d.voz.dur - 0.1} />
 			</div>
 		</AbsoluteFill>
 	);
