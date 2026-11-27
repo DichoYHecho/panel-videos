@@ -1,8 +1,8 @@
 [
   {
-    "nombre": "lodijo_einstein",
+    "nombre": "lodijo_einstein_v2",
     "voz": "Koda",
-    "estilo": "Warm documentary narrator telling a surprising fact. Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. Natural and sincere, never sounds like an advert. Ask the opening question with intrigue, with a short dramatic pause before the second 'Einstein'. Read the quote calmly. Pause, then say 'Falso.' firmly and briefly. Tell the real origin like a curious friend. End with a friendly, light question.",
-    "texto": "¿Sabías que esta frase de Einstein... nunca la dijo Einstein?\n\nLa locura es hacer lo mismo una y otra vez y esperar resultados diferentes.\n\nFalso.\n\nAparece por primera vez en 1981, en reuniones de grupos de ayuda como Narcóticos Anónimos. Einstein llevaba veintiséis años muerto.\n\n¿Tú también creías que era suya?"
+    "estilo": "Warm documentary narrator telling a surprising fact. Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. Natural and sincere, never sounds like an advert. Ask the opening question with intrigue: make a clear dramatic pause of about one second after 'esta frase de Einstein', then say 'nunca la dijo Einstein' with emphasis. Read the quote calmly. Pause, then say 'Falso.' firmly and briefly. Tell the real origin like a curious friend, at a lively pace. Pause, then end with a friendly, light question.",
+    "texto": "¿Sabías que esta frase de Einstein... nunca la dijo Einstein?\n\nLa locura es hacer lo mismo una y otra vez y esperar resultados diferentes.\n\nFalso.\n\nAparece en 1981, en un folleto de Narcóticos Anónimos. Einstein llevaba veintiséis años muerto.\n\n¿Tú también creías que era suya?"
   }
 ]
