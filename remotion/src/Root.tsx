@@ -7,6 +7,8 @@ import {QuizLargo, duracionQuizLargo, type DatosQuizLargo} from './QuizLargo';
 import {QUIZ_LARGO_PRUEBA} from './datosLargo';
 import {LoDijo, duracionLoDijo, type DatosLoDijo} from './LoDijo';
 import {LODIJO_EINSTEIN} from './datosLoDijo';
+import {ContraAutor, duracionContra, type DatosContra} from './ContraAutor';
+import {CONTRA_MUERTE} from './datosContra';
 
 const MINIATURA_EJEMPLO: DatosMiniatura = {foto: 'ejemplo/simone.jpg', recorte: 'ejemplo/simone_recorte.png', proporcion: 689 / 516, tema: 'coraje', cabeza: [0.57, 0.38]};
 
@@ -41,6 +43,16 @@ export const Root: React.FC = () => (
 			defaultProps={LODIJO_EINSTEIN}
 			durationInFrames={duracionLoDijo(LODIJO_EINSTEIN)}
 			calculateMetadata={({props}) => ({durationInFrames: duracionLoDijo(props as DatosLoDijo)})}
+			fps={30}
+			width={1080}
+			height={1920}
+		/>
+		<Composition
+			id="ContraAutor"
+			component={ContraAutor}
+			defaultProps={CONTRA_MUERTE}
+			durationInFrames={duracionContra(CONTRA_MUERTE)}
+			calculateMetadata={({props}) => ({durationInFrames: duracionContra(props as DatosContra)})}
 			fps={30}
 			width={1080}
 			height={1920}
