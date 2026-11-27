@@ -1,4 +1,4 @@
-﻿"""Crea el vídeo de cada publicación que aún no lo tiene y lo sube a Airtable (campo «Vídeo»).
+"""Crea el vídeo de cada publicación que aún no lo tiene y lo sube a Airtable (campo «Vídeo»).
 
 - Lee en Publicaciones las que no están «Publicado» y no tienen vídeo (las más antiguas primero).
 - Busca su cita en la tabla Citas para sacar la Fuente (gancho) y la foto (Foto manual o Wikipedia).
