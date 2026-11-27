@@ -1,4 +1,4 @@
-﻿"""Orden de las citas que aún no se han usado (24 nov 2026). Make (escenario 01, domingo y miércoles a las 02:00)
+"""Orden de las citas que aún no se han usado (24 nov 2026). Make (escenario 01, domingo y miércoles a las 02:00)
 coge las 7 primeras por el campo «Orden» de Citas; este script recalcula ese campo antes, para que salgan primero:
 
 1. Efemérides: autores con aniversario de nacimiento o muerte en los próximos DIAS días (más si es redondo).
