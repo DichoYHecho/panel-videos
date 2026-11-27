@@ -9,6 +9,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame} from 'remotion';
 import {AMARILLO, FPS, INTER, ROJO, lerp, pop, rampa, suave} from './base';
 import {MapaPro, type DatosMapa} from './mapas';
+import {Cierre} from './cierre';
 import {Entra, Palabras, type Palabra} from './LoDijo';
 
 type Hito = {titulo: string; sub: string; icono: 'estela' | 'libro' | 'mejilla'; frase?: string; t: number};
@@ -245,26 +246,8 @@ const EscenaPregunta: React.FC<{d: DatosOrigen; t: number}> = ({d, t}) => {
 				{tarjeta(d.opciones[1], '2', 1)}
 			</div>
 			<div style={{marginTop: 60, fontFamily: INTER, fontWeight: 700, fontSize: 40, color: 'rgba(255,255,255,0.75)', opacity: rampa(t, T.pregunta + 1.2, 0.4)}}>Escribe 1 o 2 en comentarios</div>
-			<CuentaAtras t={t} t0={d.voz.dur - 0.1} t1={d.voz.dur + COLA - 0.35} />
+			<Cierre t={t} t0={d.voz.dur - 0.1} />
 		</AbsoluteFill>
-	);
-};
-
-/** Tiempo para pensar: un anillo que se vacía cuando la voz ya ha terminado, con un bocadillo de comentario dentro. */
-const CuentaAtras: React.FC<{t: number; t0: number; t1: number}> = ({t, t0, t1}) => {
-	const e = pop(t, t0, 0.4);
-	const p = Math.min(Math.max((t - t0) / (t1 - t0), 0), 1);
-	const r = 54;
-	const largo = 2 * Math.PI * r;
-	return (
-		<div style={{marginTop: 46, display: 'flex', alignItems: 'center', gap: 22, opacity: Math.min(e * 1.5, 1), transform: `scale(${0.7 + 0.3 * e})`}}>
-			<svg width={130} height={130} viewBox="0 0 130 130">
-				<circle cx={65} cy={65} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={9} />
-				<circle cx={65} cy={65} r={r} fill="none" stroke={AMARILLO} strokeWidth={9} strokeLinecap="round" strokeDasharray={largo} strokeDashoffset={largo * p} transform="rotate(-90 65 65)" />
-				<path d="M42 50 h46 a8 8 0 0 1 8 8 v18 a8 8 0 0 1 -8 8 h-26 l-12 10 v-10 h-8 a8 8 0 0 1 -8 -8 v-18 a8 8 0 0 1 8 -8 z" fill="#fff" />
-			</svg>
-			<span style={{fontFamily: INTER, fontWeight: 800, fontSize: 40, color: '#fff'}}>Piensa tu respuesta…</span>
-		</div>
 	);
 };
 
