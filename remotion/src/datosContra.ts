@@ -9,7 +9,7 @@ import voz from '../public/proto/contra_muerte_v1.json';
 export const CONTRA_MUERTE: DatosContra = {
 	tema: 'La muerte',
 	a: {nombre: 'Epicuro', foto: 'proto/epicuro.jpg', foco: [0.5, 0.35], epoca: 'Grecia · s. III a. C.', cita: 'Mientras existimos, la *muerte* no está; y cuando llega la *muerte*, ya no existimos.', citaIdx: [17, 30]},
-	b: {nombre: 'Quevedo', foto: 'proto/quevedo.jpg', foco: [0.62, 0.5], epoca: 'España · s. XVII', cita: 'Polvo serán, mas polvo *enamorado*.', citaIdx: [43, 47], desfase: 0.25},
+	b: {nombre: 'Quevedo', foto: 'proto/quevedo_sin_rotulo.jpg', foco: [0.44, 0.38], epoca: 'España · s. XVII', cita: 'Polvo serán, mas polvo *enamorado*.', citaIdx: [43, 47], desfase: 0.25},
 	voz: {archivo: 'proto/contra_muerte_v1.wav', dur: voz.dur, palabras: voz.palabras},
 	musica: 'proto/musica_contra.wav',
 	gancho: {a: '¿Sabías que dos de las frases más famosas sobre la muerte…', b: 'dicen justo lo contrario?', tB: 4.0},
