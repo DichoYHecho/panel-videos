@@ -1,8 +1,8 @@
 [
   {
-    "nombre": "contra_muerte_v1",
+    "nombre": "origen_ojo_v1",
     "voz": "Koda",
-    "estilo": "Warm documentary narrator presenting a friendly debate. Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. Natural and sincere, never sounds like an advert. Ask the opening question with intrigue and a clear one-second pause before 'dicen justo lo contrario'. Introduce each author briefly, pause, then read each quote slowly and with feeling, like reading it aloud for the first time. The first quote is calm and rational; the second one is tender and passionate. End with a warm, inviting question.",
-    "texto": "¿Sabías que dos de las frases más famosas sobre la muerte... dicen justo lo contrario?\n\nEpicuro escribió:\n\nMientras existimos, la muerte no está; y cuando llega la muerte, ya no existimos.\n\nQuevedo, en cambio, creía que el amor sobrevive a la muerte:\n\nPolvo serán, mas polvo enamorado.\n\n¿Y tú con quién estás? Te leo en comentarios."
+    "estilo": "Warm documentary narrator telling a surprising piece of history. Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral Spanish. Natural and sincere, never sounds like an advert. Ask the opening question with intrigue, with a clear one-second pause before 'sino para ponerle límite'. Tell the story like a curious friend, at a lively but clear pace, with short pauses between ideas. Say the last sentence about Jesus gently. Pause, then end with a warm, open question.",
+    "texto": "¿Sabías que «ojo por ojo» no nació para pedir venganza... sino para ponerle límite?\n\nAparece hace casi cuatro mil años, en el Código de Hammurabi, en Babilonia: si alguien le saca un ojo a otro, se le sacará un ojo a él.\n\nLa idea era que el castigo no fuera mayor que el daño.\n\nSiglos después pasó a la Biblia, en el libro del Éxodo.\n\nY Jesús le dio la vuelta: si te golpean en una mejilla, pon la otra.\n\n¿Tú qué crees que es más justo?"
   }
 ]
