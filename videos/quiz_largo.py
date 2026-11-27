@@ -1,4 +1,4 @@
-"""Vídeo largo «¿Quién lo dijo? · El gran quiz de las frases» (22 nov 2026). SOLO LEE Airtable: no escribe ni publica.
+﻿"""Vídeo largo «¿Quién lo dijo? · El gran quiz de las frases» (22 nov 2026). SOLO LEE Airtable: no escribe ni publica.
 
 Elige 20 preguntas del banco verificado (tabla Citas) repartidas en 4 niveles (5 por nivel) y lo monta con Remotion
 (composición QuizLargo, 1920x1080). Lo deja en salida_largo/ con un .txt para la descripción (créditos de las fotos).
@@ -191,12 +191,12 @@ def palabras_falsas(cita, palabra):
 
 
 # ---------------------------------------------------------------- narración (23 nov 2026)
-# Una voz (Gemini «Enceladus», español neutro) que lee cada pregunta y cuenta la respuesta. 5 audios en total
-# (intro y final + uno por nivel), cortados por pregunta en las pausas; se guardan en cache/voces.
-VOZ_LARGO = "Enceladus"
-ESTILO_LARGO = ("A friendly quiz host talking to people at home, like a relaxed quiz night among friends. Neutral "
-                "Spanish (español neutro), with no strong regional accent, easy to understand in Mexico, Colombia, "
-                "Argentina, the United States and Spain. Warm, close to the microphone and unhurried, because many "
+# Una voz (Gemini «Koda», castellano de España desde el 27 nov 2026) que lee cada pregunta y cuenta la respuesta.
+# 5 audios en total (intro y final + uno por nivel), cortados por pregunta en las pausas; se guardan en cache/voces.
+VOZ_LARGO = "Koda"
+ESTILO_LARGO = ("A friendly quiz host from Spain talking to people at home, like a relaxed quiz night among friends. "
+                "Native Castilian Spanish accent from Spain (peninsular Spanish), never Latin American or neutral "
+                "Spanish. Warm, close to the microphone and unhurried, because many "
                 "listeners are older. Read each quote slowly, savouring it; say the options in a playful way; "
                 "reveal each answer with a hint of a smile, then tell the fact like a curious friend. "
                 "Never sounds like an advert or a radio announcer.")
